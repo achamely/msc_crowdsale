@@ -44,7 +44,8 @@ def get_balance(address, csym, div):
 	    if div == '1':
 		return bal['value']
 	    else:
-		return ('%.8f' % float(bal['value'])/100000000)
+		fbal=float(bal['value'])/100000000    
+                return ('%.8f' % fbal)
 
 
 def send_tx(dstaddress, txamount, txcid):
