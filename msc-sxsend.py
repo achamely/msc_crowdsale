@@ -27,9 +27,9 @@ def get_balance(address, csym, div):
     for bal in tx_data['balance']:
         if csym == bal['symbol']:
             if div == '1':
-                return ('%.8f' % float(bal['value'])/100000000)
+               return bal['value']
             else:
-                return bal['value']
+                return ('%.8f' % float(bal['value'])/100000000)
 
 
 if len(sys.argv) > 1 and "--force" not in sys.argv: 
@@ -88,7 +88,7 @@ if available_balance < fee_total and not force:
 #    cid_balance = json.loads(commands.getoutput('echo '+cid_query+' | python '+RDIR+'/msc-balance.py'))['balance']
 
 #get balance from omniwallet web interface
-cid_balance=get_balance(listOptions['transaction_from'], 'MSC','1')
+cid_balance=get_balance(listOptions['transaction_from'], 'MSC','2')
 
 try:
     float(cid_balance)
@@ -339,7 +339,7 @@ if listOptions['broadcast'] == 1:
 else:
     bcast_status="out: Created, No TX"
 
-#print input_counter
+print bcast_status
 
 if listOptions['clean'] == 0:
     pass

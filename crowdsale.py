@@ -42,9 +42,10 @@ def get_balance(address, csym, div):
     for bal in tx_data['balance']:
 	if csym == bal['symbol']:
 	    if div == '1':
-		return ('%.8f' % float(bal['value'])/100000000)
-	    else:
 		return bal['value']
+	    else:
+		return ('%.8f' % float(bal['value'])/100000000)
+
 
 def send_tx(dstaddress, txamount, txcid):
     #write function to call msc_sxsendtx.py with the proper json files
