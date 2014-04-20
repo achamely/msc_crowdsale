@@ -1,0 +1,11 @@
+{
+  "my_address": "{{Public from Address}}",
+  "investment_address": "{{Public to Address}}",
+  "end_date": {{end date in epoch utc}},
+  "earlybird_bonus": {{Smart Prop Bonus % /week }},
+  "x_rate": {{exchange rate. How many MSC in a BTC.  Ex; .2 BTC/MSC =>  1/.2 = 5 MSC/BTC}},
+  "sp_rate": {{expected MSC -> SP rate}},
+  "sp_cid": {{smart property currency id}},
+  "property_type": {{ 1=Indivisible, 2=Divisible }}
+  "my_private_key": "{{private key for signing my_address}}"
+}
