@@ -39,12 +39,12 @@ def get_balance(address, csym, div):
     url =  'https://test.omniwallet.org/v1/address/addr/'
     PAYLOAD = {'addr': address }
     tx_data= requests.post(url, data=PAYLOAD, verify=False).json()
-    for cur in tx_data['balance']:
-	if csym == cur['symbol']:
+    for bal in tx_data['balance']:
+	if csym == bal['symbol']:
 	    if div == '1':
-		return ('%.8f' % float(cur['value'])/100000000)
+		return ('%.8f' % float(bal['value'])/100000000)
 	    else:
-		return cur['value']
+		return bal['value']
 
 def send_tx(dstaddress, txamount, txcid):
     #write function to call msc_sxsendtx.py with the proper json files
@@ -86,6 +86,7 @@ CLEAN=1
 
 while 1:
 
+	print('Checking for tx to calculate expected smart property return')
 	#Calculate the expected bonus for anyone we haven't yet.
 	try:
           dbc
@@ -94,7 +95,9 @@ while 1:
 
 	#Find transaction where we have Sent the MSC investment and we have not calculated expected Smart Properties
         dbc.execute("SELECT * FROM tx where f_msc_sent='1' and sp_exp='-1' order by id")
-        ROWS = cur.fetchall()
+        ROWS = dbc.fetchall()
+
+	print('Found '+str(len(ROWS))+' new TX to process')
 
         for row in ROWS:
             url =  'http://btc.blockr.io/api/v1/tx/info/' + row['tx_invest']
@@ -104,10 +107,10 @@ while 1:
 		#Calculate and record expected number of Smart Property Tokens we should receive based on bonus calculation
                 SPBASE=MSC*SPRATE                   #Base Num Tokens expected: Investment amount * return multiplier
                 SBD=EDATE-TXDATEUTC                 #Seconds before deadline
-                BONUS=(BRATE*(SBD/604800)*SPBASE    #calculate the Total Bonus amount =  Seconds before deadline/seconds in a week * Bonus% week * Token Base amount
-                SPEXP=(BONUS+SPBASE)                  #calculate the final token expected
+                BONUS=(BRATE*(SBD/604800)*SPBASE)   #calculate the Total Bonus amount =  Seconds before deadline/seconds in a week * Bonus% week * Token Base amount
+                SPEXP=BONUS+SPBASE                  #calculate the final token expected
                 try:
-                    dbc.execute("UPDATE tx set sp_exp=%s where address=%s", (SPEXP, row['address'])
+                    dbc.execute("UPDATE tx set sp_exp=%s where address=%s", (SPEXP, row['address']))
                     con.commit()
                 except psycopg2.DatabaseError, e:
                     if con:
@@ -115,7 +118,7 @@ while 1:
                         print 'Error updating db: %s' % e
                         sys.exit(1)
 
-
+	print('Checking DB for entries to finish and send Smart Property Tokens back to investor')
 	#Go through the Db of people we have not yet sent Smart Property Tokens to and if we have enough (Smart Property Token) balance send them the expected/calculated Expect number of tokens. 
 	try:
 	  dbc
@@ -124,11 +127,13 @@ while 1:
 	
 	#Get TX's where user has verified its ready, we have not yet sent smart property, we have sent MSC investment and we have calculated the Expected Smart properties
 	dbc.execute("SELECT * FROM tx where v_sp_send='1' and f_sp_sent='0' and f_msc_sent='1' and sp_exp>'0' order by id")
-	ROWS = cur.fetchall()
+	ROWS = dbc.fetchall()
 	
+	print('Found '+str(len(ROWS))+' new DB entries to process')
+
 	#url =  'https://test.omniwallet.org/v1/mastercoin_verify/transactions/' + MYADDRESS  #validate this statement/url. 
 	#tx_data= requests.get(url).json()
-	SPBALANCE=get_balance(tx_data['transactions'], 'SP'+SPCID, SPDIV)
+	SPBALANCE=get_balance(MYADDRESS, 'SP'+str(SPCID), SPDIV)
 	
 	for row in ROWS:
 	    if row['sp_exp'] <= SPBALANCE:
@@ -137,7 +142,7 @@ while 1:
 		    SPBALANCE = SPBALANCE-row['sp_exp']
 		    #Update Database on who we sent SP tokens too and how many
 		    try:
-		        dbc.execute("UPDATE tx set f_sp_sent='1',sp_sent=%s,tx_out=%s where address=%s", (row['sp_exp'], BCAST['hash'], row['address'])
+		        dbc.execute("UPDATE tx set f_sp_sent='1',sp_sent=%s,tx_out=%s where address=%s", (row['sp_exp'], BCAST['hash'], row['address']))
 	                con.commit()
 		    except psycopg2.DatabaseError, e:
 			if con:
@@ -147,7 +152,8 @@ while 1:
 	    else:
 		print('Local Smart Property Balance ('+SPBALANCE+') is too low to credit '+row['sp_exp']+' tokens for investor:'+row['address'])
 		break
-		
+
+	print('Checking DB for entries to send MSC investment to Fundraiser')		
 	#Scan the Database for any new transactions we haven't yet invested
 	try:
 	  dbc
@@ -156,25 +162,28 @@ while 1:
 	
 	#Select tx's where the MSC amount to invest is verified and we have not yet sent MSC or Smart Property Tokens
 	dbc.execute("SELECT * FROM tx where v_msc_send='1' and f_sp_sent='0' and f_msc_sent='0' order by id")
-	ROWS = cur.fetchall()
+	ROWS = dbc.fetchall()
+
+	print('Found '+str(len(ROWS))+' new DB entries to send investing payment')
+
 
 	#Get MSC balance to verify before sending
 	#url =  'https://test.omniwallet.org/v1/address/addr/'
     	#PAYLOAD = {'addr': MYADDRESS }
         #tx_data= requests.get(url, params=PAYLOAD).json()
-        MSCBALANCE=get_balance(tx_data['transactions'], 'MSC','2')
+        MSCBALANCE=get_balance(MYADDRESS,'MSC','2')
 	
 	for row in ROWS:
 	    #For each tx calculate MSC to send and send it to the investment address using msc_sxsend.py
 	    MSC=row['btc']*RATE
 	    #Make sure we have enough MSC to actually do the investment
 	    if MSC <= MSCBALANCE:
-	        BCAST=json.loads(send_tx(IADDR,MSC,ICUR)
+	        BCAST=json.loads(send_tx(IADDR,MSC,ICUR))
 	        NOW=calendar.timegm(time.gmtime())
 	        if "Success" in BCAST['status']:
 	             #Record the #MSC sent in the db
 	            try:
-		        dbc.execute("UPDATE tx set f_msc_sent='1', msc_sent=%s, tx_invest=%s, time_msc_sent=%s where address=%s", (MSC, BCAST['hash'], NOW, row['address'])
+		        dbc.execute("UPDATE tx set f_msc_sent='1', msc_sent=%s, tx_invest=%s, time_msc_sent=%s where address=%s", (MSC, BCAST['hash'], NOW, row['address']))
 		        con.commit()
 		    except psycopg2.DatabaseError, e:
 	                if con:
@@ -187,4 +196,5 @@ while 1:
 
 
 	#sleep for 5 minutes and repeat
+	print('Sleeping for 5 minutes and checking again')
 	time.sleep(300)
