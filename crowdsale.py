@@ -20,8 +20,8 @@ DBUSER='ubuntu'
 
 def handler(signum, frame):
     print('Stop Signal received')
-    if con:
-        con.close()
+    if dbc:
+        dbc.close()
     exit(1)
 
 def sql_connect():
@@ -48,10 +48,10 @@ def get_balance(address, csym, div):
 
 def send_tx(dstaddress, txamount, txcid):
     #write function to call msc_sxsendtx.py with the proper json files
-    send_json=('{ \\"transaction_from\\": \\"'+MYADDRESS+'\\", \\"transaction_to\\": \\"'+dstaddress+'\\",'
-               ' \\"currency_id\\": '+txcid+', \\"msc_send_amt\\": \\"'+txamount+'\\", \\"from_private_key\\": \\"'+MYPRIVKEY+'\\",'
-	       '\\"broadcast\\": '+BROADCAST+',\\"clean\\": '+CLEAN+' }')
-    print('Creating tx for '+txamount+' of currency type '+txcid+' and sending it to '+dstaddress)
+    send_json=('{ \\"transaction_from\\": \\"'+str(MYADDRESS)+'\\", \\"transaction_to\\": \\"'+str(dstaddress)+'\\",'
+               ' \\"currency_id\\": '+str(txcid)+', \\"msc_send_amt\\": \\"'+str(txamount)+'\\", \\"from_private_key\\": \\"'+str(MYPRIVKEY)+'\\",'
+               '\\"broadcast\\": '+str(BROADCAST)+',\\"clean\\": '+str(CLEAN)+' }')
+    print('Creating\sending tx for '+str(txamount)+' of currency type '+str(txcid)+' and sending it to '+str(dstaddress))
     return commands.getoutput('echo '+send_json+' | python '+TOOLS+'/msc-sxsend.py')
     #returns json output of send
 
@@ -86,7 +86,7 @@ CLEAN=1
 
 while 1:
 
-	print('Checking for tx to calculate expected smart property return')
+	print('Checking DB for tx to calculate expected smart property return')
 	#Calculate the expected bonus for anyone we haven't yet.
 	try:
           dbc
@@ -97,7 +97,7 @@ while 1:
         dbc.execute("SELECT * FROM tx where f_msc_sent='1' and sp_exp='-1' order by id")
         ROWS = dbc.fetchall()
 
-	print('Found '+str(len(ROWS))+' new TX to process')
+	print('^----Found '+str(len(ROWS))+' new TX to process')
 
         for row in ROWS:
             url =  'http://btc.blockr.io/api/v1/tx/info/' + row['tx_invest']
@@ -129,7 +129,7 @@ while 1:
 	dbc.execute("SELECT * FROM tx where v_sp_send='1' and f_sp_sent='0' and f_msc_sent='1' and sp_exp>'0' order by id")
 	ROWS = dbc.fetchall()
 	
-	print('Found '+str(len(ROWS))+' new DB entries to process')
+	print('^----Found '+str(len(ROWS))+' new DB entries to process')
 
 	#url =  'https://test.omniwallet.org/v1/mastercoin_verify/transactions/' + MYADDRESS  #validate this statement/url. 
 	#tx_data= requests.get(url).json()
@@ -142,15 +142,17 @@ while 1:
 		    SPBALANCE = SPBALANCE-row['sp_exp']
 		    #Update Database on who we sent SP tokens too and how many
 		    try:
-		        dbc.execute("UPDATE tx set f_sp_sent='1',sp_sent=%s,tx_out=%s where address=%s", (row['sp_exp'], BCAST['hash'], row['address']))
+		        dbc.execute("UPDATE tx set f_sp_sent='1',sp_sent=%s,tx_out=%s,sp_tx_file=%s where address=%s", (row['sp_exp'], BCAST['hash'], BCAST['st_file'], row['address']))
 	                con.commit()
 		    except psycopg2.DatabaseError, e:
 			if con:
 			    con.rollback()
 	    		    print 'Error updating db: %s' % e    
 			    sys.exit(1)
+		else:
+		    print('Sending SP TX failed for '+str(row['address'])+' with error: '+json.dumps(BCAST))
 	    else:
-		print('Local Smart Property Balance ('+SPBALANCE+') is too low to credit '+row['sp_exp']+' tokens for investor:'+row['address'])
+		print('Local Smart Property Balance ('+str(SPBALANCE)+') is too low to credit '+str(row['sp_exp'])+' tokens for investor:'+str(row['address']))
 		break
 
 	print('Checking DB for entries to send MSC investment to Fundraiser')		
@@ -164,7 +166,7 @@ while 1:
 	dbc.execute("SELECT * FROM tx where v_msc_send='1' and f_sp_sent='0' and f_msc_sent='0' order by id")
 	ROWS = dbc.fetchall()
 
-	print('Found '+str(len(ROWS))+' new DB entries to send investing payment')
+	print('^----Found '+str(len(ROWS))+' new DB entries to send investing payment')
 
 
 	#Get MSC balance to verify before sending
@@ -183,15 +185,17 @@ while 1:
 	        if "Success" in BCAST['status']:
 	             #Record the #MSC sent in the db
 	            try:
-		        dbc.execute("UPDATE tx set f_msc_sent='1', msc_sent=%s, tx_invest=%s, time_msc_sent=%s where address=%s", (MSC, BCAST['hash'], NOW, row['address']))
+		        dbc.execute("UPDATE tx set f_msc_sent='1', msc_sent=%s, tx_invest=%s, time_msc_sent=%s,msc_tx_file=%s where address=%s", (MSC, BCAST['hash'], NOW, BCAST['st_file'], row['address']))
 		        con.commit()
 		    except psycopg2.DatabaseError, e:
 	                if con:
 			    con.rollback()
 			    print 'Error updating db: %s' % e
-			    sys.exit(1)	
+			    sys.exit(1)
+		else:
+		    print('Sending MSC TX failed for '+str(row['address'])+' with error: '+json.dumps(BCAST))
 	    else:
-		print('Local MSC Balance is too low ('+MSCBALANCE+') to send investment payment: '+MSC+' for investor:'+row['address'])
+		print('Local MSC Balance is too low ('+str(MSCBALANCE)+') to send investment payment: '+str(MSC)+' for investor:'+str(row['address']))
 		break
 
 

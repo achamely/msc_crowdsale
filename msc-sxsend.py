@@ -8,6 +8,7 @@ import operator
 import commands
 import pybitcointools
 import os
+import requests, urlparse
 from pycoin import encoding
 from ecdsa import curves, ecdsa
 
@@ -18,6 +19,17 @@ def is_pubkey_valid(pubkey):
         return curves.ecdsa.point_is_valid(ecdsa.generator_secp256k1, public_pair[0], public_pair[1])
     except TypeError:
         return False
+
+def get_balance(address, csym, div):
+    url =  'https://test.omniwallet.org/v1/address/addr/'
+    PAYLOAD = {'addr': address }
+    tx_data= requests.post(url, data=PAYLOAD, verify=False).json()
+    for bal in tx_data['balance']:
+        if csym == bal['symbol']:
+            if div == '1':
+                return ('%.8f' % float(bal['value'])/100000000)
+            else:
+                return bal['value']
 
 
 if len(sys.argv) > 1 and "--force" not in sys.argv: 
@@ -68,12 +80,15 @@ if available_balance < fee_total and not force:
 
 #check if Currency ID balance is available
 #print json.dumps({ "address": addr, "currency": currency, "balance": balance})
-cid_query = '{ \\"address\\": \\"'+listOptions['transaction_from']+'\\", \\"currency_id\\": '+str(listOptions['currency_id'])+'}'
+#cid_query = '{ \\"address\\": \\"'+listOptions['transaction_from']+'\\", \\"currency_id\\": '+str(listOptions['currency_id'])+'}'
 
-if force:
-    cid_balance = json.loads(commands.getoutput('echo '+cid_query+' | python '+RDIR+'/msc-balance.py --force '))['balance']
-else:
-    cid_balance = json.loads(commands.getoutput('echo '+cid_query+' | python '+RDIR+'/msc-balance.py'))['balance']
+#if force:
+#    cid_balance = json.loads(commands.getoutput('echo '+cid_query+' | python '+RDIR+'/msc-balance.py --force '))['balance']
+#else:
+#    cid_balance = json.loads(commands.getoutput('echo '+cid_query+' | python '+RDIR+'/msc-balance.py'))['balance']
+
+#get balance from omniwallet web interface
+cid_balance=get_balance(listOptions['transaction_from'], 'MSC','1')
 
 try:
     float(cid_balance)
