@@ -94,7 +94,7 @@ if listOptions['currency_id'] == 1:
 elif listOptions['currency_id'] == 2:
     cid_balance=get_balance(listOptions['transaction_from'], 'TMSC','2')
 else:
-    cid_balance=get_balance(listOptions['transaction_from'], 'SP+'listOptions['currency_id'],listOptions['property_type'])
+    cid_balance=get_balance(listOptions['transaction_from'], 'SP'+listOptions['currency_id'],listOptions['property_type'])
 
 try:
     float(cid_balance)

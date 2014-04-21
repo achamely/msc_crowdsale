@@ -36,16 +36,29 @@ def sql_connect():
         sys.exit(1)
 
 def get_balance(address, csym, div):
+    bal1=-1
+    bal2=-2
     url =  'https://test.omniwallet.org/v1/address/addr/'
     PAYLOAD = {'addr': address }
     tx_data= requests.post(url, data=PAYLOAD, verify=False).json()
     for bal in tx_data['balance']:
 	if csym == bal['symbol']:
 	    if div == '1':
-		return bal['value']
+		bal1=bal['value']
 	    else:
 		fbal=float(bal['value'])/100000000    
-                return ('%.8f' % fbal)
+                bal1=('%.8f' % fbal)
+    url2 = 'http://uswest-dmzblue-base04alpha-devsnapred.masterchest.info/mastercoin_verify/adamtest.aspx?address='+address
+    tx2_data=requests.get(url2, verify=False).json()
+    for bal in tx2_data['balance']:
+        if csym == bal['symbol']:
+                bal2= bal['value']
+    if bal1 == bal2:
+	print('Confirmed Balance of '+str(bal1)+' '+str(csym)+' for '+str(address)+' from 2 data points')
+	return bal1
+    else:
+	print('Balance mismatch, Site 1:['+str(bal1)+'] Site 2:['+str(bal2)+'] '+str(csym)+' for '+str(address)+' from 2 data points. Preffering Site 2: '+str(bal2))
+	return bal2
 
 
 def send_tx(dstaddress, txamount, txcid, div):
@@ -54,8 +67,12 @@ def send_tx(dstaddress, txamount, txcid, div):
                ' \\"currency_id\\": '+str(txcid)+', \\"msc_send_amt\\": \\"'+str(txamount)+'\\", \\"from_private_key\\": \\"'+str(MYPRIVKEY)+'\\",'
                '\\"property_type\\": '+str(div)+',\\"broadcast\\": '+str(BROADCAST)+',\\"clean\\": '+str(CLEAN)+' }')
     print('  ^--Creating\sending tx for '+str(txamount)+' of currency type '+str(txcid)+' and sending it to '+str(dstaddress))
+
+    #print('\n\n\n '+send_json)
+    #inter = commands.getoutput('echo '+send_json+' | python '+TOOLS+'/msc-sxsend.py')
+    #print ('\n\n\n '+inter)
     return commands.getoutput('echo '+send_json+' | python '+TOOLS+'/msc-sxsend.py')
-    #returns json output of send
+    #return inter
 
 signal.signal(signal.SIGINT, handler)
 #read json in with variables
@@ -86,6 +103,16 @@ BROADCAST='0'
 #1 to keep unsigned and signed, 2 to keep only signed
 CLEAN=1
 
+
+
+if ICUR=='1':
+    ISYM='MSC'
+elif ICUR=='2':
+    ISYM='TMSC'
+else:
+    print('Investment Currency is invalid, please check and configuration and try again')
+    exit(1)
+
 while 1:
 
 	print('\nChecking DB for tx to calculate expected smart property return')
@@ -98,7 +125,6 @@ while 1:
 	#Find transaction where we have Sent the MSC investment and we have not calculated expected Smart Properties
         dbc.execute("SELECT * FROM tx where f_msc_sent='1' and sp_exp='-1' order by id")
         ROWS = dbc.fetchall()
-
 	print('^----Found '+str(len(ROWS))+' new TX to process')
 
         for row in ROWS:
@@ -188,19 +214,19 @@ while 1:
 	#url =  'https://test.omniwallet.org/v1/address/addr/'
     	#PAYLOAD = {'addr': MYADDRESS }
         #tx_data= requests.get(url, params=PAYLOAD).json()
-        MSCBALANCE=get_balance(MYADDRESS,'MSC','2')
+        ICURBALANCE=get_balance(MYADDRESS,ISYM,'2')
 	
 	for row in ROWS:
 	    #For each tx calculate MSC to send and send it to the investment address using msc_sxsend.py
-	    MSC=row['btc']*RATE
+	    IAMOUNT=row['btc']*RATE
 	    #Make sure we have enough MSC to actually do the investment
-	    if MSC <= MSCBALANCE:
-	        BCAST=json.loads(send_tx(IADDR,MSC,ICUR,'2'))
+	    if IAMOUNT <= ICURBALANCE:
+	        BCAST=json.loads(send_tx(IADDR,IAMOUNT,ICUR,'2'))
 	        NOW=calendar.timegm(time.gmtime())
 	        if "Success" in BCAST['status']:
 	             #Record the #MSC sent in the db
 	            try:
-		        dbc.execute("UPDATE tx set f_msc_sent='1', msc_sent=%s, tx_invest=%s, time_msc_sent=%s,msc_tx_file=%s where address=%s", (MSC, BCAST['hash'], NOW, BCAST['st_file'], row['address']))
+		        dbc.execute("UPDATE tx set f_msc_sent='1', msc_sent=%s, tx_invest=%s, time_msc_sent=%s,msc_tx_file=%s where address=%s", (IAMOUNT, BCAST['hash'], NOW, BCAST['st_file'], row['address']))
 		        con.commit()
 		    except psycopg2.DatabaseError, e:
 	                if con:
@@ -209,7 +235,7 @@ while 1:
 			    sys.exit(1)
 		elif BROADCAST == 0:
 		    try:
-                        dbc.execute("TEST MODE, File Created: UPDATE tx set f_msc_sent='2', msc_sent=%s, tx_invest=%s, time_msc_sent=%s,msc_tx_file=%s where address=%s", (MSC, BCAST['hash'], NOW, BCAST['st_file'], row['address']))
+                        dbc.execute("TEST MODE, File Created: UPDATE tx set f_msc_sent='2', msc_sent=%s, tx_invest=%s, time_msc_sent=%s,msc_tx_file=%s where address=%s", (IAMOUNT, BCAST['hash'], NOW, BCAST['st_file'], row['address']))
                         con.commit()
                     except psycopg2.DatabaseError, e:
                         if con:
@@ -218,12 +244,12 @@ while 1:
                             sys.exit(1)
 		else:		
 		    print('\n\n****************************************************************************************************************************')
-		    print('Sending MSC TX failed for '+str(row['address'])+' with error: '+json.dumps(BCAST))
+		    print('Sending Investment TX failed for '+str(row['address'])+' with error: '+json.dumps(BCAST))
  		    print('****************************************************************************************************************************')
 	    else:
-		print('\n\n****************************************************************************************************************************')
-		print('Local MSC Balance is too low ('+str(MSCBALANCE)+') to send investment payment: '+str(MSC)+' for investor: '+str(row['address']))
-		print('****************************************************************************************************************************')
+		print('\n\n*****************************************************************************************************************************************************')
+		print('Local Source Address Currency Balance is too low ('+str(ICURBALANCE)+' '+ISYM+') to send investment payment: '+str(IAMOUNT)+' for investor: '+str(row['address']))
+		print('*****************************************************************************************************************************************************')
 		break
 
 
