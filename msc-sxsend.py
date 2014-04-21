@@ -168,7 +168,7 @@ cleartext_packet = (
         (hex(sequence_number)[2:].rjust(2,"0") + 
             hex(transaction_type)[2:].rjust(8,"0") +
             hex(currency_id)[2:].rjust(8,"0") +
-            hex(amount)[2:].rjust(16,"0") ).ljust(62,"0").replace("L", "0") )
+            hex(amount)[2:].rjust(16,"0") ).ljust(62,"0") )
 
 sha_the_sender = hashlib.sha256(from_address).hexdigest().upper()[0:-2]
 # [0:-2] because we remove last ECDSA byte from SHA digest
