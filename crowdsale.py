@@ -48,11 +48,11 @@ def get_balance(address, csym, div):
                 return ('%.8f' % fbal)
 
 
-def send_tx(dstaddress, txamount, txcid):
+def send_tx(dstaddress, txamount, txcid, div):
     #write function to call msc_sxsendtx.py with the proper json files
     send_json=('{ \\"transaction_from\\": \\"'+str(MYADDRESS)+'\\", \\"transaction_to\\": \\"'+str(dstaddress)+'\\",'
                ' \\"currency_id\\": '+str(txcid)+', \\"msc_send_amt\\": \\"'+str(txamount)+'\\", \\"from_private_key\\": \\"'+str(MYPRIVKEY)+'\\",'
-               '\\"broadcast\\": '+str(BROADCAST)+',\\"clean\\": '+str(CLEAN)+' }')
+               '\\"property_type\\": '+str(div)+',\\"broadcast\\": '+str(BROADCAST)+',\\"clean\\": '+str(CLEAN)+' }')
     print('Creating\sending tx for '+str(txamount)+' of currency type '+str(txcid)+' and sending it to '+str(dstaddress))
     return commands.getoutput('echo '+send_json+' | python '+TOOLS+'/msc-sxsend.py')
     #returns json output of send
@@ -80,7 +80,7 @@ SPCID=listOptions['sp_cid']
 #Define Divisible
 SPDIV=listOptions['property_type']
 #Define the currency we send to make the investment (1 MSC, 2 TMCS).
-ICUR='1'
+ICUR='2'
 #Broadcast 1 or Test 0
 BROADCAST='0'
 #1 to keep unsigned and signed, 2 to keep only signed
@@ -139,7 +139,7 @@ while 1:
 	
 	for row in ROWS:
 	    if row['sp_exp'] <= SPBALANCE:
-		BCAST=json.loads(send_tx(row['address'],row['sp_exp'],SPCID))
+		BCAST=json.loads(send_tx(row['address'],row['sp_exp'],SPCID, SPDIV))
 		if "Success" in BCAST['status']:
 		    SPBALANCE = SPBALANCE-row['sp_exp']
 		    #Update Database on who we sent SP tokens too and how many
@@ -182,7 +182,7 @@ while 1:
 	    MSC=row['btc']*RATE
 	    #Make sure we have enough MSC to actually do the investment
 	    if MSC <= MSCBALANCE:
-	        BCAST=json.loads(send_tx(IADDR,MSC,ICUR))
+	        BCAST=json.loads(send_tx(IADDR,MSC,ICUR,'2'))
 	        NOW=calendar.timegm(time.gmtime())
 	        if "Success" in BCAST['status']:
 	             #Record the #MSC sent in the db

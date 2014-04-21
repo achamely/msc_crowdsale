@@ -91,8 +91,10 @@ if available_balance < fee_total and not force:
 #get balance from omniwallet web interface
 if listOptions['currency_id'] == 1:
     cid_balance=get_balance(listOptions['transaction_from'], 'MSC','2')
-else:
+elif listOptions['currency_id'] == 2:
     cid_balance=get_balance(listOptions['transaction_from'], 'TMSC','2')
+else:
+    cid_balance=get_balance(listOptions['transaction_from'], 'SP+'listOptions['currency_id'],listOptions['property_type'])
 
 try:
     float(cid_balance)
