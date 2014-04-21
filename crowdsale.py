@@ -113,12 +113,13 @@ SPDIV=listOptions['property_type']
 #Define the currency we send to make the investment ('1' MSC, '2' TMCS).
 ICUR='2'
 #Broadcast 1 or Test 0
-BROADCAST=0
+BROADCAST=1
 #1 to keep unsigned and signed, 2 to keep only signed
 CLEAN=1
 
 
 
+print('\n\n-----------------------------------------------------------------------------------------')
 if ICUR=='1':
     ISYM='MSC'
     print('Investment Currency has been set to Mastercoins. All Tx to the fundraiser address will send MSC')
@@ -128,6 +129,15 @@ elif ICUR=='2':
 else:
     print('Investment Currency is invalid, please check and configuration and try again')
     exit(1)
+
+if BROADCAST==0:
+    print('Test Mode Enabled: Tx files will be created but not transmitted')
+elif BROADCAST==1:
+    print('Live Mode Enabled: Tx Files will be created AND Transmitted!')
+else:
+    print('Broadcast flag is invalid, Please change it and try again')
+    exit(1)
+print('-----------------------------------------------------------------------------------------')
 
 while 1:
 
