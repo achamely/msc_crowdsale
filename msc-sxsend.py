@@ -29,7 +29,8 @@ def get_balance(address, csym, div):
             if div == '1':
                return bal['value']
             else:
-                return ('%.8f' % float(bal['value'])/100000000)
+		fbal=float(bal['value'])/100000000
+                return ('%.8f' % fbal)
 
 
 if len(sys.argv) > 1 and "--force" not in sys.argv: 
@@ -88,7 +89,10 @@ if available_balance < fee_total and not force:
 #    cid_balance = json.loads(commands.getoutput('echo '+cid_query+' | python '+RDIR+'/msc-balance.py'))['balance']
 
 #get balance from omniwallet web interface
-cid_balance=get_balance(listOptions['transaction_from'], 'MSC','2')
+if listOptions['currency_id'] == 1:
+    cid_balance=get_balance(listOptions['transaction_from'], 'MSC','2')
+else:
+    cid_balance=get_balance(listOptions['transaction_from'], 'TMSC','2')
 
 try:
     float(cid_balance)
@@ -162,10 +166,14 @@ cleartext_packet = (
         (hex(sequence_number)[2:].rjust(2,"0") + 
             hex(transaction_type)[2:].rjust(8,"0") +
             hex(currency_id)[2:].rjust(8,"0") +
-            hex(amount)[2:].rjust(16,"0") ).ljust(62,"0") )
+            hex(amount)[2:].rjust(16,"0") ).ljust(62,"0").replace("L", "0") )
 
 sha_the_sender = hashlib.sha256(from_address).hexdigest().upper()[0:-2]
 # [0:-2] because we remove last ECDSA byte from SHA digest
+
+print cleartext_packet
+print amount
+print hex(amount) 
 
 cleartext_bytes = map(ord,cleartext_packet.decode('hex'))  #convert to bytes for xor
 shathesender_bytes = map(ord,sha_the_sender.decode('hex')) #convert to bytes for xor
