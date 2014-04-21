@@ -176,7 +176,8 @@ while 1:
                 except psycopg2.DatabaseError, e:
                     if dbc:
                         con.rollback()
-                        print 'Error updating db: %s' % e
+                        print 'Error updating Expected Smart Property Tokens in db: %s' % e
+			print ('Please verify data before restarting the daemon')
                         sys.exit(1)
 	    elif "success" in tx_data['status'] and tx_data['data']['confirmations'] < 3:
 		print ('Tx '+str(row['tx_invest'])+' appears valid but has '+str(tx_data['data']['confirmations'])+' confirmations. Waiting for 3 confirmations')
@@ -214,7 +215,8 @@ while 1:
 		    except psycopg2.DatabaseError, e:
 			if dbc:
 			    con.rollback()
-	    		    print 'Error updating db: %s' % e    
+	    		    print 'Error updating db with SP Token Send TX: %s' % e    
+			    print ('Please verify data before restarting the daemon')
 			    sys.exit(1)
 		elif BROADCAST == 0:
 		    FNAME=BCAST['st_file'].rpartition('/')[2]
@@ -225,7 +227,8 @@ while 1:
                     except psycopg2.DatabaseError, e:
                         if dbc:
                             con.rollback()
-                            print 'Error updating db: %s' % e
+                            print 'Error updating db with SP Token Send File Details: %s' % e
+			    print ('Please verify data before restarting the daemon')
                             sys.exit(1)
 		else:
 		    print('\n\n****************************************************************************************************************************')
@@ -271,7 +274,8 @@ while 1:
 		    except psycopg2.DatabaseError, e:
 	                if dbc:
 			    con.rollback()
-			    print 'Error updating db: %s' % e
+			    print 'Error updating db with Investment Send tx details: %s' % e
+			    print ('Please verify data before restarting the daemon')
 			    sys.exit(1)
 		elif BROADCAST == 0:
 		    FNAME=BCAST['st_file'].rpartition('/')[2]
@@ -282,7 +286,8 @@ while 1:
                     except psycopg2.DatabaseError, e:
                         if dbc:
                             con.rollback()
-                            print 'Error updating db: %s' % e
+                            print 'Error updating db with Investment Send File details: %s' % e
+			    print ('Please verify data before restarting the daemon')
                             sys.exit(1)
 		else:		
 		    print('\n\n****************************************************************************************************************************')
