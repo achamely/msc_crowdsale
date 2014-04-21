@@ -17,16 +17,17 @@ TOOLS=os.path.dirname(os.path.realpath(__file__))
 #Define the local DB name/user for tracking
 DBNAME='maidsafe'
 DBUSER='ubuntu'
+#Prime SQL command
+con = None
 
 def handler(signum, frame):
     print('Stop Signal received')
-    if dbc:
-        dbc.close()
+    if con:
+        con.close()
     exit(1)
 
 def sql_connect():
-    #Prime SQL command
-    con = None
+    global con
     try:     
         con = psycopg2.connect(database=DBNAME, user=DBUSER)
         cur = con.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -52,7 +53,7 @@ def get_balance(address, csym, div):
     tx2_data=requests.get(url2, verify=False).json()
     for bal in tx2_data['balance']:
         if csym == bal['symbol']:
-                bal2= bal['value']
+                bal2= ('%.8f' % float(bal['value']))
     if bal1 == bal2:
 	print('Confirmed Balance of '+str(bal1)+' '+str(csym)+' for '+str(address)+' from 2 data points')
 	return bal1
@@ -66,13 +67,13 @@ def send_tx(dstaddress, txamount, txcid, div):
     send_json=('{ \\"transaction_from\\": \\"'+str(MYADDRESS)+'\\", \\"transaction_to\\": \\"'+str(dstaddress)+'\\",'
                ' \\"currency_id\\": '+str(txcid)+', \\"msc_send_amt\\": \\"'+str(txamount)+'\\", \\"from_private_key\\": \\"'+str(MYPRIVKEY)+'\\",'
                '\\"property_type\\": '+str(div)+',\\"broadcast\\": '+str(BROADCAST)+',\\"clean\\": '+str(CLEAN)+' }')
-    print('  ^--Creating\sending tx for '+str(txamount)+' of currency type '+str(txcid)+' and sending it to '+str(dstaddress))
+    print('  ^--Creating\sending tx for '+str(txamount)+' of currency id '+str(txcid)+' and sending it to '+str(dstaddress))
 
-    #print('\n\n\n '+send_json)
-    #inter = commands.getoutput('echo '+send_json+' | python '+TOOLS+'/msc-sxsend.py')
+    #print ('\n\n\n '+send_json)
+    inter = commands.getoutput('echo '+send_json+' | python '+TOOLS+'/msc-sxsend.py').strip()
     #print ('\n\n\n '+inter)
-    return commands.getoutput('echo '+send_json+' | python '+TOOLS+'/msc-sxsend.py')
-    #return inter
+    #return commands.getoutput('echo '+send_json+' | python '+TOOLS+'/msc-sxsend.py')
+    return inter
 
 signal.signal(signal.SIGINT, handler)
 #read json in with variables
@@ -99,7 +100,7 @@ SPDIV=listOptions['property_type']
 #Define the currency we send to make the investment (1 MSC, 2 TMCS).
 ICUR='2'
 #Broadcast 1 or Test 0
-BROADCAST='0'
+BROADCAST=0
 #1 to keep unsigned and signed, 2 to keep only signed
 CLEAN=1
 
@@ -141,7 +142,7 @@ while 1:
                     dbc.execute("UPDATE tx set sp_exp=%s where address=%s", (SPEXP, row['address']))
                     con.commit()
                 except psycopg2.DatabaseError, e:
-                    if con:
+                    if dbc:
                         con.rollback()
                         print 'Error updating db: %s' % e
                         sys.exit(1)
@@ -159,30 +160,34 @@ while 1:
 	
 	print('^----Found '+str(len(ROWS))+' new DB entries to process')
 
-	#url =  'https://test.omniwallet.org/v1/mastercoin_verify/transactions/' + MYADDRESS  #validate this statement/url. 
-	#tx_data= requests.get(url).json()
-	SPBALANCE=get_balance(MYADDRESS, 'SP'+str(SPCID), SPDIV)
+        #Only attempt to get balance if we have data to process
+        SPBALANCE=0
+        if len(ROWS) > 0:
+	    SPBALANCE=get_balance(MYADDRESS, 'SP'+str(SPCID), SPDIV)
 	
 	for row in ROWS:
 	    if row['sp_exp'] <= SPBALANCE:
 		BCAST=json.loads(send_tx(row['address'],row['sp_exp'],SPCID, SPDIV))
 		if "Success" in BCAST['status']:
 		    SPBALANCE = SPBALANCE-row['sp_exp']
+		    FNAME=BCAST['st_file'].rpartition('/')[2]
 		    #Update Database on who we sent SP tokens too and how many
 		    try:
-		        dbc.execute("UPDATE tx set f_sp_sent='1',sp_sent=%s,tx_out=%s,sp_tx_file=%s where address=%s", (row['sp_exp'], BCAST['hash'], BCAST['st_file'], row['address']))
+		        dbc.execute("UPDATE tx set f_sp_sent='1',sp_sent=%s,tx_out=%s,sp_tx_file=%s where address=%s", (row['sp_exp'], BCAST['hash'], FNAME, row['address']))
 	                con.commit()
 		    except psycopg2.DatabaseError, e:
-			if con:
+			if dbc:
 			    con.rollback()
 	    		    print 'Error updating db: %s' % e    
 			    sys.exit(1)
 		elif BROADCAST == 0:
+		    FNAME=BCAST['st_file'].rpartition('/')[2]
 		    try:
-                        dbc.execute("TEST MODE, File Created: UPDATE tx set f_sp_sent='2',sp_sent=%s,tx_out=%s,sp_tx_file=%s where address=%s", (row['sp_exp'], BCAST['hash'], BCAST['st_file'], row['address']))
+			print('Test Mode Enabled: File Created but not broadcast')
+                        dbc.execute("UPDATE tx set f_sp_sent='2',sp_sent=%s,tx_out=%s,sp_tx_file=%s where address=%s", (row['sp_exp'], BCAST['hash'], FNAME, row['address']))
                         con.commit()
                     except psycopg2.DatabaseError, e:
-                        if con:
+                        if dbc:
                             con.rollback()
                             print 'Error updating db: %s' % e
                             sys.exit(1)
@@ -209,12 +214,10 @@ while 1:
 
 	print('^----Found '+str(len(ROWS))+' new DB entries to send investing payment')
 
-
-	#Get MSC balance to verify before sending
-	#url =  'https://test.omniwallet.org/v1/address/addr/'
-    	#PAYLOAD = {'addr': MYADDRESS }
-        #tx_data= requests.get(url, params=PAYLOAD).json()
-        ICURBALANCE=get_balance(MYADDRESS,ISYM,'2')
+	#only attempt to get balance if we have data to process
+	ICURBALANCE=0
+	if len(ROWS) > 0:
+            ICURBALANCE=get_balance(MYADDRESS,ISYM,'2')
 	
 	for row in ROWS:
 	    #For each tx calculate MSC to send and send it to the investment address using msc_sxsend.py
@@ -224,21 +227,24 @@ while 1:
 	        BCAST=json.loads(send_tx(IADDR,IAMOUNT,ICUR,'2'))
 	        NOW=calendar.timegm(time.gmtime())
 	        if "Success" in BCAST['status']:
-	             #Record the #MSC sent in the db
+		    FNAME=BCAST['st_file'].rpartition('/')[2]
+	            #Record the #MSC sent in the db
 	            try:
-		        dbc.execute("UPDATE tx set f_msc_sent='1', msc_sent=%s, tx_invest=%s, time_msc_sent=%s,msc_tx_file=%s where address=%s", (IAMOUNT, BCAST['hash'], NOW, BCAST['st_file'], row['address']))
+		        dbc.execute("UPDATE tx set f_msc_sent='1', msc_sent=%s, tx_invest=%s, time_msc_sent=%s,msc_tx_file=%s where address=%s", (IAMOUNT, BCAST['hash'], NOW, FNAME, row['address']))
 		        con.commit()
 		    except psycopg2.DatabaseError, e:
-	                if con:
+	                if dbc:
 			    con.rollback()
 			    print 'Error updating db: %s' % e
 			    sys.exit(1)
 		elif BROADCAST == 0:
+		    FNAME=BCAST['st_file'].rpartition('/')[2]
 		    try:
-                        dbc.execute("TEST MODE, File Created: UPDATE tx set f_msc_sent='2', msc_sent=%s, tx_invest=%s, time_msc_sent=%s,msc_tx_file=%s where address=%s", (IAMOUNT, BCAST['hash'], NOW, BCAST['st_file'], row['address']))
+			print('Test Mode Enabled: File Created but not broadcast')
+                        dbc.execute("UPDATE tx set f_msc_sent='2', msc_sent=%s, tx_invest=%s, time_msc_sent=%s,msc_tx_file=%s where address=%s", (IAMOUNT, BCAST['hash'], NOW, FNAME, row['address']))
                         con.commit()
                     except psycopg2.DatabaseError, e:
-                        if con:
+                        if dbc:
                             con.rollback()
                             print 'Error updating db: %s' % e
                             sys.exit(1)

@@ -156,13 +156,12 @@ if change < 0 or fee_total > available_balance and not force:
     exit()
 
 #build multisig data address
-
 from_address = listOptions['transaction_from']
 transaction_type = 0   #simple send
 sequence_number = 1    #packet number
 #currency_id = 2        #MSC=1, TMSC=2
 currency_id = int(listOptions['currency_id'])
-amount = int(listOptions['msc_send_amt']*1e8)  #maran's impl used float??
+amount = int(float(listOptions['msc_send_amt'])*1e8)  #maran's impl used float??
 
 cleartext_packet = ( 
         (hex(sequence_number)[2:].rjust(2,"0") + 
@@ -172,10 +171,6 @@ cleartext_packet = (
 
 sha_the_sender = hashlib.sha256(from_address).hexdigest().upper()[0:-2]
 # [0:-2] because we remove last ECDSA byte from SHA digest
-
-print cleartext_packet
-print amount
-print hex(amount) 
 
 cleartext_bytes = map(ord,cleartext_packet.decode('hex'))  #convert to bytes for xor
 shathesender_bytes = map(ord,sha_the_sender.decode('hex')) #convert to bytes for xor
