@@ -53,7 +53,7 @@ def send_tx(dstaddress, txamount, txcid, div):
     send_json=('{ \\"transaction_from\\": \\"'+str(MYADDRESS)+'\\", \\"transaction_to\\": \\"'+str(dstaddress)+'\\",'
                ' \\"currency_id\\": '+str(txcid)+', \\"msc_send_amt\\": \\"'+str(txamount)+'\\", \\"from_private_key\\": \\"'+str(MYPRIVKEY)+'\\",'
                '\\"property_type\\": '+str(div)+',\\"broadcast\\": '+str(BROADCAST)+',\\"clean\\": '+str(CLEAN)+' }')
-    print('Creating\sending tx for '+str(txamount)+' of currency type '+str(txcid)+' and sending it to '+str(dstaddress))
+    print('  ^--Creating\sending tx for '+str(txamount)+' of currency type '+str(txcid)+' and sending it to '+str(dstaddress))
     return commands.getoutput('echo '+send_json+' | python '+TOOLS+'/msc-sxsend.py')
     #returns json output of send
 
@@ -88,7 +88,7 @@ CLEAN=1
 
 while 1:
 
-	print('Checking DB for tx to calculate expected smart property return')
+	print('\nChecking DB for tx to calculate expected smart property return')
 	#Calculate the expected bonus for anyone we haven't yet.
 	try:
           dbc
@@ -120,7 +120,7 @@ while 1:
                         print 'Error updating db: %s' % e
                         sys.exit(1)
 
-	print('Checking DB for entries to finish and send Smart Property Tokens back to investor')
+	print('\nChecking DB for entries to finish and send Smart Property Tokens back to investor')
 	#Go through the Db of people we have not yet sent Smart Property Tokens to and if we have enough (Smart Property Token) balance send them the expected/calculated Expect number of tokens. 
 	try:
 	  dbc
@@ -151,13 +151,26 @@ while 1:
 			    con.rollback()
 	    		    print 'Error updating db: %s' % e    
 			    sys.exit(1)
+		elif BROADCAST == 0:
+		    try:
+                        dbc.execute("TEST MODE, File Created: UPDATE tx set f_sp_sent='2',sp_sent=%s,tx_out=%s,sp_tx_file=%s where address=%s", (row['sp_exp'], BCAST['hash'], BCAST['st_file'], row['address']))
+                        con.commit()
+                    except psycopg2.DatabaseError, e:
+                        if con:
+                            con.rollback()
+                            print 'Error updating db: %s' % e
+                            sys.exit(1)
 		else:
+		    print('\n\n****************************************************************************************************************************')
 		    print('Sending SP TX failed for '+str(row['address'])+' with error: '+json.dumps(BCAST))
+		    print('****************************************************************************************************************************')
 	    else:
-		print('Local Smart Property Balance ('+str(SPBALANCE)+') is too low to credit '+str(row['sp_exp'])+' tokens for investor:'+str(row['address']))
+		print('\n\n****************************************************************************************************************************')
+		print('Local Smart Property Balance ('+str(SPBALANCE)+') is too low to credit '+str(row['sp_exp'])+' tokens for investor: '+str(row['address']))
+		print('****************************************************************************************************************************')
 		break
 
-	print('Checking DB for entries to send MSC investment to Fundraiser')		
+	print('\nChecking DB for entries to send MSC investment to Fundraiser')		
 	#Scan the Database for any new transactions we haven't yet invested
 	try:
 	  dbc
@@ -194,13 +207,28 @@ while 1:
 			    con.rollback()
 			    print 'Error updating db: %s' % e
 			    sys.exit(1)
-		else:
+		elif BROADCAST == 0:
+		    try:
+                        dbc.execute("TEST MODE, File Created: UPDATE tx set f_msc_sent='2', msc_sent=%s, tx_invest=%s, time_msc_sent=%s,msc_tx_file=%s where address=%s", (MSC, BCAST['hash'], NOW, BCAST['st_file'], row['address']))
+                        con.commit()
+                    except psycopg2.DatabaseError, e:
+                        if con:
+                            con.rollback()
+                            print 'Error updating db: %s' % e
+                            sys.exit(1)
+		else:		
+		    print('\n\n****************************************************************************************************************************')
 		    print('Sending MSC TX failed for '+str(row['address'])+' with error: '+json.dumps(BCAST))
+ 		    print('****************************************************************************************************************************')
 	    else:
-		print('Local MSC Balance is too low ('+str(MSCBALANCE)+') to send investment payment: '+str(MSC)+' for investor:'+str(row['address']))
+		print('\n\n****************************************************************************************************************************')
+		print('Local MSC Balance is too low ('+str(MSCBALANCE)+') to send investment payment: '+str(MSC)+' for investor: '+str(row['address']))
+		print('****************************************************************************************************************************')
 		break
 
 
 	#sleep for 5 minutes and repeat
-	print('Sleeping for 5 minutes and checking again')
+	print('\n\n------------------------------------------------------------')
+	print('      Sleeping for 5 minutes before next check')
+	print('------------------------------------------------------------')
 	time.sleep(300)
