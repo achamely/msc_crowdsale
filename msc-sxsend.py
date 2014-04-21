@@ -349,8 +349,6 @@ if listOptions['broadcast'] == 1:
 else:
     bcast_status="out: Created, No TX"
 
-print bcast_status
-
 if listOptions['clean'] == 0:
     pass
 elif listOptions['clean'] == 1:
