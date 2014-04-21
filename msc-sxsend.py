@@ -21,17 +21,42 @@ def is_pubkey_valid(pubkey):
         return False
 
 def get_balance(address, csym, div):
+    bal1=-3
+    bal2=-4
     url =  'https://test.omniwallet.org/v1/address/addr/'
     PAYLOAD = {'addr': address }
-    tx_data= requests.post(url, data=PAYLOAD, verify=False).json()
-    for bal in tx_data['balance']:
-        if csym == bal['symbol']:
-            if div == '1':
-               return bal['value']
-            else:
-		fbal=float(bal['value'])/100000000
-                return ('%.8f' % fbal)
+    try:
+        tx_data= requests.post(url, data=PAYLOAD, verify=False).json()
+        for bal in tx_data['balance']:
+            if csym == bal['symbol']:
+                if div == 1:
+                    bal1=bal['value']
+                else:
+                    fbal=float(bal['value'])/100000000
+                    bal1=('%.8f' % fbal)
+    except ValueError:  # includes simplejson.decoder.JSONDecodeError
+        #print('Site 1 Unresponsive, Using 0 balance for now')
+        bal1=-1
 
+    url2 = 'http://uswest-dmzblue-base04alpha-devsnapred.masterchest.info/mastercoin_verify/adamtest.aspx?address='+address
+    try:
+        tx2_data=requests.get(url2, verify=False).json()
+        for bal in tx2_data['balance']:
+            if csym == bal['symbol']:
+                bal2= ('%.8f' % float(bal['value']))
+    except ValueError:  # includes simplejson.decoder.JSONDecodeError
+        #print('Site 2 Unresponsive, Using 0 balance for now')
+        bal2=-2
+
+    if bal1 == bal2:
+        #print(' Confirmed Balance of '+str(bal1)+' '+str(csym)+' for '+str(address)+' from 2 data points')
+        return bal1
+    elif bal1 > 0 and bal2 < 0:
+        #print(' Balance mismatch, Site 1:['+str(bal1)+'] Site 2:['+str(bal2)+'] '+str(csym)+' for '+str(address)+' from 2 data points. Preffering Non Negative Balance Site 1: '+str(bal2))
+        return bal1
+    else:
+        #print(' Balance mismatch, Site 1:['+str(bal1)+'] Site 2:['+str(bal2)+'] '+str(csym)+' for '+str(address)+' from 2 data points. Preffering Site 2: '+str(bal2))
+        return bal2
 
 if len(sys.argv) > 1 and "--force" not in sys.argv: 
     print "Takes a list of bitcoind options, addresses and a send amount and outputs a transaction in JSON \nUsage: cat send.json | python msc-sxsend.py\nRequires sx and a configured obelisk server"
@@ -90,11 +115,11 @@ if available_balance < fee_total and not force:
 
 #get balance from omniwallet web interface
 if listOptions['currency_id'] == 1:
-    cid_balance=get_balance(listOptions['transaction_from'], 'MSC','2')
+    cid_balance=get_balance(listOptions['transaction_from'], 'MSC',2)
 elif listOptions['currency_id'] == 2:
-    cid_balance=get_balance(listOptions['transaction_from'], 'TMSC','2')
+    cid_balance=get_balance(listOptions['transaction_from'], 'TMSC',2)
 else:
-    cid_balance=get_balance(listOptions['transaction_from'], 'SP'+listOptions['currency_id'],listOptions['property_type'])
+    cid_balance=get_balance(listOptions['transaction_from'], 'SP'+str(listOptions['currency_id']),listOptions['property_type'])
 
 try:
     float(cid_balance)
@@ -103,7 +128,7 @@ except ValueError:
     exit()
 
 if  float(cid_balance) < float(listOptions['msc_send_amt']) and not force:
-    print json.dumps({"status": "NOT OK", "error": "Currency ID balance too low" , "fix": "Check Currency ID balance: "+cid_balance})
+    print json.dumps({"status": "NOT OK", "error": "Currency ID balance too low" , "fix": "Check Currency ID balance: "+str(cid_balance)})
     exit()
 
 #generate public key of bitcoin address from priv key

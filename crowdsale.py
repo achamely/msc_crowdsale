@@ -37,28 +37,41 @@ def sql_connect():
         sys.exit(1)
 
 def get_balance(address, csym, div):
-    bal1=-1
-    bal2=-2
+    bal1=-3
+    bal2=-4
     url =  'https://test.omniwallet.org/v1/address/addr/'
     PAYLOAD = {'addr': address }
-    tx_data= requests.post(url, data=PAYLOAD, verify=False).json()
-    for bal in tx_data['balance']:
-	if csym == bal['symbol']:
-	    if div == '1':
-		bal1=bal['value']
-	    else:
-		fbal=float(bal['value'])/100000000    
-                bal1=('%.8f' % fbal)
+    try:
+        tx_data= requests.post(url, data=PAYLOAD, verify=False).json()
+        for bal in tx_data['balance']:
+	    if csym == bal['symbol']:
+	    	if div == 1:
+		    bal1=bal['value']
+		else:
+		    fbal=float(bal['value'])/100000000    
+                    bal1=('%.8f' % fbal)
+    except ValueError:  # includes simplejson.decoder.JSONDecodeError
+	print('Site 1 Unresponsive, Using 0 balance for now')
+	bal1=-1
+
     url2 = 'http://uswest-dmzblue-base04alpha-devsnapred.masterchest.info/mastercoin_verify/adamtest.aspx?address='+address
-    tx2_data=requests.get(url2, verify=False).json()
-    for bal in tx2_data['balance']:
-        if csym == bal['symbol']:
-                bal2= ('%.8f' % float(bal['value']))
+    try:
+	tx2_data=requests.get(url2, verify=False).json()
+    	for bal in tx2_data['balance']:
+            if csym == bal['symbol']:
+            	bal2= ('%.8f' % float(bal['value']))
+    except ValueError:  # includes simplejson.decoder.JSONDecodeError
+	print('Site 2 Unresponsive, Using 0 balance for now')
+	bal2=-2
+
     if bal1 == bal2:
-	print('Confirmed Balance of '+str(bal1)+' '+str(csym)+' for '+str(address)+' from 2 data points')
+	print(' Confirmed Balance of '+str(bal1)+' '+str(csym)+' for '+str(address)+' from 2 data points')
 	return bal1
+    elif bal1 > 0 and bal2 < 0:
+	print(' Balance mismatch, Site 1:['+str(bal1)+'] Site 2:['+str(bal2)+'] '+str(csym)+' for '+str(address)+' from 2 data points. Preffering Non Negative Balance Site 1: '+str(bal2))
+        return bal1
     else:
-	print('Balance mismatch, Site 1:['+str(bal1)+'] Site 2:['+str(bal2)+'] '+str(csym)+' for '+str(address)+' from 2 data points. Preffering Site 2: '+str(bal2))
+	print(' Balance mismatch, Site 1:['+str(bal1)+'] Site 2:['+str(bal2)+'] '+str(csym)+' for '+str(address)+' from 2 data points. Preffering Site 2: '+str(bal2))
 	return bal2
 
 
@@ -71,7 +84,7 @@ def send_tx(dstaddress, txamount, txcid, div):
 
     #print ('\n\n\n '+send_json)
     inter = commands.getoutput('echo '+send_json+' | python '+TOOLS+'/msc-sxsend.py').strip()
-    #print ('\n\n\n '+inter)
+    print ('\n\n\n '+inter)
     #return commands.getoutput('echo '+send_json+' | python '+TOOLS+'/msc-sxsend.py')
     return inter
 
@@ -88,7 +101,7 @@ IADDR=listOptions['investment_address']
 #Define the Investment Sale end date (epoch) to calculated expected bonus
 EDATE=listOptions['end_date']
 #Define the Smart Property Bonus % /week
-BRATE=listOptions['earlybird_bonus']/100
+BRATE=listOptions['earlybird_bonus']
 #Define the desired exchange rate. How many MSC in a BTC.  Ex; .2 BTC/MSC =>  1/.2 = 5 MSC/BTC
 RATE=listOptions['x_rate']
 #Define the expected MSC -> SP rate
@@ -97,7 +110,7 @@ SPRATE=listOptions['sp_rate']
 SPCID=listOptions['sp_cid']
 #Define Divisible
 SPDIV=listOptions['property_type']
-#Define the currency we send to make the investment (1 MSC, 2 TMCS).
+#Define the currency we send to make the investment ('1' MSC, '2' TMCS).
 ICUR='2'
 #Broadcast 1 or Test 0
 BROADCAST=0
@@ -108,8 +121,10 @@ CLEAN=1
 
 if ICUR=='1':
     ISYM='MSC'
+    print('Investment Currency has been set to Mastercoins. All Tx to the fundraiser address will send MSC')
 elif ICUR=='2':
     ISYM='TMSC'
+    print('Investment Currency has been set to Test Mastercoins. All Tx to the fundraiser address will send TMSC')
 else:
     print('Investment Currency is invalid, please check and configuration and try again')
     exit(1)
@@ -130,22 +145,33 @@ while 1:
 
         for row in ROWS:
             url =  'http://btc.blockr.io/api/v1/tx/info/' + row['tx_invest']
-            tx_data= requests.get(url).json()
-	    if "success" in tx_data['status']:
-		TXDATEUTC=calendar.timegm( time.strptime(tx_data['time_utc'], '%Y-%m-%dT%H:%M:%SZ'))
+	    try:
+                tx_data= requests.get(url).json()
+	    except ValueError:  # includes simplejson.decoder.JSONDecodeError
+	        print('Remote TX info not available yet for tx: '+str(row['tx_invest']))
+
+	    #wait for at least 3 confirmations before moving onto data validation
+	    if "success" in tx_data['status'] and tx_data['data']['confirmations'] >= 3:
+		TXDATEUTC=calendar.timegm(time.strptime(tx_data['data']['time_utc'], '%Y-%m-%dT%H:%M:%SZ'))
 		#Calculate and record expected number of Smart Property Tokens we should receive based on bonus calculation
-                SPBASE=MSC*SPRATE                   #Base Num Tokens expected: Investment amount * return multiplier
-                SBD=EDATE-TXDATEUTC                 #Seconds before deadline
-                BONUS=(BRATE*(SBD/604800)*SPBASE)   #calculate the Total Bonus amount =  Seconds before deadline/seconds in a week * Bonus% week * Token Base amount
-                SPEXP=BONUS+SPBASE                  #calculate the final token expected
+                SPBASE=row['msc_sent']*SPRATE           #Base Num Tokens expected: Investment amount * return multiplier
+                SBD=EDATE-TXDATEUTC                 	#Seconds before deadline
+                BONUS=int((BRATE*SBD*SPBASE)/604800/100)   #calculate the Total Bonus amount =  Seconds before deadline/seconds in a week * Bonus% week * Token Base amount
+		SPEXP=BONUS+SPBASE                  	#calculate the final token expected
+		#print ('SPBASE:'+str(SPBASE)+'  SBD:'+str(SBD)+'  BONUS:'+str(BONUS)+'  SPEXP:'+str(SPEXP)+'  SPRATE:'+str(SPRATE)+'  BRATE:'+str(BRATE)+'  EDATE:'+str(EDATE)+'  TXDATEUTC:'+str(TXDATEUTC))
                 try:
                     dbc.execute("UPDATE tx set sp_exp=%s where address=%s", (SPEXP, row['address']))
                     con.commit()
+		    print('Calculated '+str(SPEXP)+' should be generated for investor '+str(row['address']))
                 except psycopg2.DatabaseError, e:
                     if dbc:
                         con.rollback()
                         print 'Error updating db: %s' % e
                         sys.exit(1)
+	    elif "success" in tx_data['status'] and tx_data['data']['confirmations'] < 3:
+		print ('Tx '+str(row['tx_invest'])+' appears valid but has '+str(tx_data['data']['confirmations'])+' confirmations. Waiting for 3 confirmations')
+	    else:
+		print ('Tx '+str(row['tx_invest'])+' has not been seen yet as valid yet')
 
 	print('\nChecking DB for entries to finish and send Smart Property Tokens back to investor')
 	#Go through the Db of people we have not yet sent Smart Property Tokens to and if we have enough (Smart Property Token) balance send them the expected/calculated Expect number of tokens. 
@@ -157,7 +183,7 @@ while 1:
 	#Get TX's where user has verified its ready, we have not yet sent smart property, we have sent MSC investment and we have calculated the Expected Smart properties
 	dbc.execute("SELECT * FROM tx where v_sp_send='1' and f_sp_sent='0' and f_msc_sent='1' and sp_exp>'0' order by id")
 	ROWS = dbc.fetchall()
-	
+
 	print('^----Found '+str(len(ROWS))+' new DB entries to process')
 
         #Only attempt to get balance if we have data to process
@@ -217,7 +243,7 @@ while 1:
 	#only attempt to get balance if we have data to process
 	ICURBALANCE=0
 	if len(ROWS) > 0:
-            ICURBALANCE=get_balance(MYADDRESS,ISYM,'2')
+            ICURBALANCE=get_balance(MYADDRESS,ISYM,2)
 	
 	for row in ROWS:
 	    #For each tx calculate MSC to send and send it to the investment address using msc_sxsend.py
