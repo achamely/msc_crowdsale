@@ -76,6 +76,11 @@ def get_balance(address, csym, div):
 
 
 def send_tx(dstaddress, txamount, txcid, div):
+
+    if div==1:
+	fbal=float(txamount)/100000000
+        txamount=('%.8f' % fbal)
+
     #write function to call msc_sxsendtx.py with the proper json files
     send_json=('{ \\"transaction_from\\": \\"'+str(MYADDRESS)+'\\", \\"transaction_to\\": \\"'+str(dstaddress)+'\\",'
                ' \\"currency_id\\": '+str(txcid)+', \\"msc_send_amt\\": \\"'+str(txamount)+'\\", \\"from_private_key\\": \\"'+str(MYPRIVKEY)+'\\",'
@@ -108,7 +113,7 @@ RATE=listOptions['x_rate']
 SPRATE=listOptions['sp_rate']
 #Define the Currency ID of the Smart property
 SPCID=listOptions['sp_cid']
-#Define Divisible
+#Define Divisible 1=Indivisible, 2=Divisible 
 SPDIV=listOptions['property_type']
 #Define the currency we send to make the investment ('1' MSC, '2' TMCS).
 ICUR='2'
