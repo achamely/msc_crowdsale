@@ -39,14 +39,14 @@ def sql_connect():
 def get_balance(address, csym, div):
     bal1=-3
     bal2=-4
-    url =  'https://test.omniwallet.org/v1/address/addr/'
+    url =  'https://test2.omniwallet.org/v1/address/addr/'
     PAYLOAD = {'addr': address }
     try:
         tx_data= requests.post(url, data=PAYLOAD, verify=False).json()
         for bal in tx_data['balance']:
 	    if csym == bal['symbol']:
 	    	if div == 1:
-		    bal1=bal['value']
+		    bal1=('%.8f' % float(bal['value']))
 		else:
 		    fbal=float(bal['value'])/100000000    
                     bal1=('%.8f' % fbal)
@@ -77,6 +77,8 @@ def get_balance(address, csym, div):
 
 def send_tx(dstaddress, txamount, txcid, div):
 
+    print('  ^--Creating\sending tx for '+str(txamount)+' of currency id '+str(txcid)+' and sending it to '+str(dstaddress))
+
     if div==1:
 	fbal=float(txamount)/100000000
         txamount=('%.8f' % fbal)
@@ -85,11 +87,10 @@ def send_tx(dstaddress, txamount, txcid, div):
     send_json=('{ \\"transaction_from\\": \\"'+str(MYADDRESS)+'\\", \\"transaction_to\\": \\"'+str(dstaddress)+'\\",'
                ' \\"currency_id\\": '+str(txcid)+', \\"msc_send_amt\\": \\"'+str(txamount)+'\\", \\"from_private_key\\": \\"'+str(MYPRIVKEY)+'\\",'
                '\\"property_type\\": '+str(div)+',\\"broadcast\\": '+str(BROADCAST)+',\\"clean\\": '+str(CLEAN)+' }')
-    print('  ^--Creating\sending tx for '+str(txamount)+' of currency id '+str(txcid)+' and sending it to '+str(dstaddress))
 
     #print ('\n\n\n '+send_json)
     inter = commands.getoutput('echo '+send_json+' | python '+TOOLS+'/msc-sxsend.py').strip()
-    print ('\n\n\n '+inter)
+    print ('\n\n '+inter)
     #return commands.getoutput('echo '+send_json+' | python '+TOOLS+'/msc-sxsend.py')
     return inter
 
@@ -211,10 +212,10 @@ while 1:
 	    if row['sp_exp'] <= SPBALANCE:
 		BCAST=json.loads(send_tx(row['address'],row['sp_exp'],SPCID, SPDIV))
 		if "Success" in BCAST['status']:
-		    SPBALANCE = SPBALANCE-row['sp_exp']
+	    	    SPBALANCE = float(SPBALANCE)-row['sp_exp']
 		    FNAME=BCAST['st_file'].rpartition('/')[2]
-		    #Update Database on who we sent SP tokens too and how many
 		    try:
+		    	#Update Database on who we sent SP tokens too and how many
 		        dbc.execute("UPDATE tx set f_sp_sent='1',sp_sent=%s,tx_out=%s,sp_tx_file=%s where address=%s", (row['sp_exp'], BCAST['hash'], FNAME, row['address']))
 	                con.commit()
 		    except psycopg2.DatabaseError, e:

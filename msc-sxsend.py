@@ -23,14 +23,14 @@ def is_pubkey_valid(pubkey):
 def get_balance(address, csym, div):
     bal1=-3
     bal2=-4
-    url =  'https://test.omniwallet.org/v1/address/addr/'
+    url =  'https://test2.omniwallet.org/v1/address/addr/'
     PAYLOAD = {'addr': address }
     try:
         tx_data= requests.post(url, data=PAYLOAD, verify=False).json()
         for bal in tx_data['balance']:
             if csym == bal['symbol']:
                 if div == 1:
-                    bal1=bal['value']
+                    bal1=('%.8f' % float(bal['value']))
                 else:
                     fbal=float(bal['value'])/100000000
                     bal1=('%.8f' % fbal)
