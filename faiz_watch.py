@@ -31,17 +31,22 @@ for line in iter(sx_mon.stdout.readline, ''):
 		if abs(vin['amount']) > largestamt:
 		    largestamt=abs(vin['amount'])
 		    address=vin['address']
-		print vin
+		#print vin
 
         #retval_q = subprocess.Popen('/usr/bin/psql','maidsafe', '-q', '-c', "insert into tx (address, btc, tx_in) values ('$address','#btc', '$tx_in');")
-        print address, bitcoin_amt, transaction_hash
 
 	import psycopg2
 	try:       
 	    con = psycopg2.connect(database='maidsafe', user='ubuntu')        
-	    cur = con.cursor()  
-	    cur.execute("INSERT into tx (address, btc, tx_in) values (%s, %s, %s)", (address, bitcoin_amt, transaction_hash ))         
-	    con.commit()      
+	    cur = con.cursor() 
+	    cur.execute("select * from tx where address=%s and btc=%s and tx_in=%s", (address, bitcoin_amt, transaction_hash ))
+ 	    count= cur.fetchall()
+	    if len(count) > 0:
+		print('Address: %s with investment amount %s and tx %s already exists. Skipping' % (address, bitcoin_amt, transaction_hash))
+	    else:
+	    	cur.execute("INSERT into tx (address, btc, tx_in) values (%s, %s, %s)", (address, bitcoin_amt, transaction_hash ))         
+	    	con.commit()      
+	        print ('New TX found. DB updated with address: %s amount:%s tx_hash:%s' % (address, bitcoin_amt, transaction_hash))
 	except psycopg2.DatabaseError, e:      
 	    if con: 
 		con.rollback()      
@@ -51,9 +56,6 @@ for line in iter(sx_mon.stdout.readline, ''):
 	    if con: 
 		con.close()
 
-   if(count > 1):
-        handler('','')
-   count+=1
 
 #trigger send from address for X MSC to fundraiser_addr
 #then MSC*3400 MaidSafe to from_addr, bonus calcs
