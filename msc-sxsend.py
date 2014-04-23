@@ -23,7 +23,7 @@ def is_pubkey_valid(pubkey):
 def get_balance(address, csym, div):
     bal1=-3
     bal2=-4
-    url =  'https://test2.omniwallet.org/v1/address/addr/'
+    url =  'https://test.omniwallet.org/v1/address/addr/'
     PAYLOAD = {'addr': address }
     try:
         tx_data= requests.post(url, data=PAYLOAD, verify=False).json()
@@ -38,7 +38,7 @@ def get_balance(address, csym, div):
         #print('Site 1 Unresponsive, Using 0 balance for now')
         bal1=-1
 
-    url2 = 'http://uswest-dmzblue-base04alpha-devsnapred.masterchest.info/mastercoin_verify/adamtest.aspx?address='+address
+    url2 = 'https://www.masterchest.info/mastercoin_verify/adamtest.aspx?address='+address
     try:
         tx2_data=requests.get(url2, verify=False).json()
         for bal in tx2_data['balance']:

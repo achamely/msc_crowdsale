@@ -68,7 +68,7 @@ def get_balance(address, csym, div):
 	print(' Confirmed Balance of '+str(bal1)+' '+str(csym)+' for '+str(address)+' from 2 data points')
 	return bal1
     elif bal1 > 0 and bal2 < 0:
-	print(' Balance mismatch, Site 1:['+str(bal1)+'] Site 2:['+str(bal2)+'] '+str(csym)+' for '+str(address)+' from 2 data points. Preffering Non Negative Balance Site 1: '+str(bal1))
+	print(' Balance mismatch, Site 1:['+str(bal1)+'] Site 2:['+str(bal2)+'] '+str(csym)+' for '+str(address)+' from 2 data points. Preffering Non Negative Balance Site 1: '+str(bal2))
         return bal1
     else:
 	print(' Balance mismatch, Site 1:['+str(bal1)+'] Site 2:['+str(bal2)+'] '+str(csym)+' for '+str(address)+' from 2 data points. Preffering Site 2: '+str(bal2))
@@ -89,7 +89,7 @@ def send_tx(dstaddress, txamount, txcid, div):
                '\\"property_type\\": '+str(div)+',\\"broadcast\\": '+str(BROADCAST)+',\\"clean\\": '+str(CLEAN)+' }')
 
     #print ('\n\n\n '+send_json)
-    inter = commands.getoutput('echo '+send_json+' | python '+TOOLS+'/msc-sxsend.py').strip()
+    inter = commands.getoutput('echo '+send_json+' | python '+TOOLS+'/msc-dbsxsend.py').strip()
     print ('\n\n '+inter)
     #return commands.getoutput('echo '+send_json+' | python '+TOOLS+'/msc-sxsend.py')
     return inter
@@ -147,48 +147,100 @@ print('-------------------------------------------------------------------------
 
 while 1:
 
-	print('\nChecking DB for tx to calculate expected smart property return')
-	#Calculate the expected bonus for anyone we haven't yet.
+
+	current_block = commands.getoutput('/usr/local/bin/sx fetch-last-height')
+
+	print('\nChecking DB for tx hashes to clean')
 	try:
           dbc
         except NameError:
           dbc=sql_connect()
+	
+	try:
+	  cmd="DELETE FROM tx_utxo WHERE lock='1' and block < "+str(int(current_block)-3)
+	  dbc.execute(cmd)
+	  con.commit()
+	  print('Deleted stale rows older than block %s' % str(int(current_block)-3))
+	except psycopg2.DatabaseError, e:
+	    if con:
+        	con.rollback()
+	    print 'Error %s' % e
+	    sys.exit(1)
+
+	sx_mon = commands.getoutput('sx balance '+MYADDRESS).replace(" ", "").splitlines()
+	address_satoshi_max=int(sx_mon[1].split(":")[1])
+
+	#find largest spendable input from UTXO
+	#find a recent tx that has a balance more than msc send cost (4*.00005500 +.0001 = .00032220)
+
+	#todo, add ability to use multiple smaller tx to do multi input funding
+	nws = (commands.getoutput('sx get-utxo '+MYADDRESS+" "+str(address_satoshi_max))).replace(" ", "")
+
+	lsi_array=[]
+	#since sx doesn't provide a clean output we need to try and clean it up and get the usable outputs
+	for x in nws.splitlines():
+	     lsi_array.append(x.split(':'))
+
+	data_utxo=[]
+	for i in range(0, len(lsi_array),8):
+        	#data structure: (Tuple) :: Address, hash:output, block_height, value
+        	data_utxo.append(( lsi_array[i][1], lsi_array[i+1][1]+':'+lsi_array[i+1][2], lsi_array[i+2][1], lsi_array[i+3][1] ) )
+
+        	address=lsi_array[i][1]
+        	tx_hash=lsi_array[i+1][1]
+        	tx_hash_index=lsi_array[i+1][2]
+        	block_height=lsi_array[i+2][1]
+        	satoshi=lsi_array[i+3][1]
+	        try:
+        	    dbc.execute("select * from tx_utxo where address=%s and tx_hash=%s and hash_index=%s", (address, tx_hash, tx_hash_index))
+	            count= dbc.fetchall()
+        	    if len(count) == 0 and block_height != 'Pending':
+                	dbc.execute("INSERT into tx_utxo (address, tx_hash, hash_index, satoshi, block, lock) VALUES (%s,%s,%s,%s,%s,%s)", (address, tx_hash, tx_hash_index, satoshi, current_block, 1))
+	                con.commit()
+        	        print ('New TX found. DB updated with address: %s amount:%s tx_hash:%s' % (address, satoshi, tx_hash))
+	            elif len(count) != 0:
+        	        print ('Old TX found. tx_hash %s, block_inserted %s' % ( count[0][2], count[0][5]))
+	        except psycopg2.DatabaseError, e:
+        	    if con:
+                	con.rollback()
+	            print 'Error %s' % e
+        	    sys.exit(1)
 
 	#Find transaction where we have Sent the MSC investment and we have not calculated expected Smart Properties
-        dbc.execute("SELECT * FROM tx where f_msc_sent='1' and sp_exp='-1' order by id")
-        ROWS = dbc.fetchall()
-	print('^----Found '+str(len(ROWS))+' new TX to process')
+#        dbc.execute("SELECT * FROM tx where f_msc_sent='1' and sp_exp='-1' order by id")
+#        ROWS = dbc.fetchall()
+#	print('^----Found '+str(len(ROWS))+' new TX to process')
 
-        for row in ROWS:
-            url =  'http://btc.blockr.io/api/v1/tx/info/' + row['tx_invest']
-	    try:
-                tx_data= requests.get(url).json()
-	    except ValueError:  # includes simplejson.decoder.JSONDecodeError
-	        print('Remote TX info not available yet for tx: '+str(row['tx_invest']))
-
+#        for row in ROWS:
+#            url =  'http://btc.blockr.io/api/v1/tx/info/' + row['tx_invest']
+#	    try:
+#                tx_data= requests.get(url).json()
+#	    except ValueError:  # includes simplejson.decoder.JSONDecodeError
+#	        print('Remote TX info not available yet for tx: '+str(row['tx_invest']))
+#
 	    #wait for at least 3 confirmations before moving onto data validation
-	    if "success" in tx_data['status'] and tx_data['data']['confirmations'] >= 3:
-		TXDATEUTC=calendar.timegm(time.strptime(tx_data['data']['time_utc'], '%Y-%m-%dT%H:%M:%SZ'))
+#	    if "success" in tx_data['status'] and tx_data['data']['confirmations'] >= 3:
+#		TXDATEUTC=calendar.timegm(time.strptime(tx_data['data']['time_utc'], '%Y-%m-%dT%H:%M:%SZ'))
 		#Calculate and record expected number of Smart Property Tokens we should receive based on bonus calculation
-                SPBASE=row['msc_sent']*SPRATE           #Base Num Tokens expected: Investment amount * return multiplier
-                SBD=EDATE-TXDATEUTC                 	#Seconds before deadline
-                BONUS=int((BRATE*SBD*SPBASE)/604800/100)   #calculate the Total Bonus amount =  Seconds before deadline/seconds in a week * Bonus% week * Token Base amount
-		SPEXP=BONUS+SPBASE                  	#calculate the final token expected
+#                SPBASE=row['msc_sent']*SPRATE           #Base Num Tokens expected: Investment amount * return multiplier
+#                SBD=EDATE-TXDATEUTC                 	#Seconds before deadline
+#                BONUS=int((BRATE*SBD*SPBASE)/604800/100)   #calculate the Total Bonus amount =  Seconds before deadline/seconds in a week * Bonus% week * Token Base amount
+#		SPEXP=BONUS+SPBASE                  	#calculate the final token expected
 		#print ('SPBASE:'+str(SPBASE)+'  SBD:'+str(SBD)+'  BONUS:'+str(BONUS)+'  SPEXP:'+str(SPEXP)+'  SPRATE:'+str(SPRATE)+'  BRATE:'+str(BRATE)+'  EDATE:'+str(EDATE)+'  TXDATEUTC:'+str(TXDATEUTC))
-                try:
-                    dbc.execute("UPDATE tx set sp_exp=%s where address=%s", (SPEXP, row['address']))
-                    con.commit()
-		    print('Calculated '+str(SPEXP)+' should be generated for investor '+str(row['address']))
-                except psycopg2.DatabaseError, e:
-                    if dbc:
-                        con.rollback()
-                        print 'Error updating Expected Smart Property Tokens in db: %s' % e
-			print ('Please verify data before restarting the daemon')
-                        sys.exit(1)
-	    elif "success" in tx_data['status'] and tx_data['data']['confirmations'] < 3:
-		print ('Tx '+str(row['tx_invest'])+' appears valid but has '+str(tx_data['data']['confirmations'])+' confirmations. Waiting for 3 confirmations')
-	    else:
-		print ('Tx '+str(row['tx_invest'])+' has not been seen yet as valid yet')
+#                try:
+#                    dbc.execute("UPDATE tx set sp_exp=%s where address=%s", (SPEXP, row['address']))
+#                    con.commit()
+#		    print('Calculated '+str(SPEXP)+' should be generated for investor '+str(row['address']))
+#                except psycopg2.DatabaseError, e:
+#                    if dbc:
+#                        con.rollback()
+#                        print 'Error updating Expected Smart Property Tokens in db: %s' % e
+#			print ('Please verify data before restarting the daemon')
+#                        sys.exit(1)
+#	    elif "success" in tx_data['status'] and tx_data['data']['confirmations'] < 3:
+#		print ('Tx '+str(row['tx_invest'])+' appears valid but has '+str(tx_data['data']['confirmations'])+' confirmations. Waiting for 3 confirmations')
+#	    else:
+#		print ('Tx '+str(row['tx_invest'])+' has not been seen yet as valid yet')
 
 	print('\nChecking DB for entries to finish and send Smart Property Tokens back to investor')
 	#Go through the Db of people we have not yet sent Smart Property Tokens to and if we have enough (Smart Property Token) balance send them the expected/calculated Expect number of tokens. 
@@ -224,7 +276,7 @@ while 1:
 	    		    print 'Error updating db with SP Token Send TX: %s' % e    
 			    print ('Please verify data before restarting the daemon')
 			    sys.exit(1)
-		elif BROADCAST == 0:
+		elif "Created" in BCAST['status'] and BROADCAST == 0:
 		    FNAME=BCAST['st_file'].rpartition('/')[2]
 		    try:
 			print('Test Mode Enabled: File Created but not broadcast')
@@ -246,65 +298,68 @@ while 1:
 		print('****************************************************************************************************************************')
 		break
 
-	print('\nChecking DB for entries to send MSC investment to Fundraiser')		
+#	print('\nChecking DB for entries to send MSC investment to Fundraiser')		
 	#Scan the Database for any new transactions we haven't yet invested
-	try:
-	  dbc
-	except NameError:
-	  dbc=sql_connect()
+#	try:
+#	  dbc
+#	except NameError:
+#	  dbc=sql_connect()
 	
 	#Select tx's where the MSC amount to invest is verified and we have not yet sent MSC or Smart Property Tokens
-	dbc.execute("SELECT * FROM tx where v_msc_send='1' and f_sp_sent='0' and f_msc_sent='0' order by id")
-	ROWS = dbc.fetchall()
+#	dbc.execute("SELECT * FROM tx where v_msc_send='1' and f_sp_sent='0' and f_msc_sent='0' order by id")
+#	ROWS = dbc.fetchall()
 
-	print('^----Found '+str(len(ROWS))+' new DB entries to send investing payment')
+#	print('^----Found '+str(len(ROWS))+' new DB entries to send investing payment')
 
 	#only attempt to get balance if we have data to process
-	ICURBALANCE=0
-	if len(ROWS) > 0:
-            ICURBALANCE=get_balance(MYADDRESS,ISYM,2)
+#	ICURBALANCE=0
+#	if len(ROWS) > 0:
+#            ICURBALANCE=get_balance(MYADDRESS,ISYM,2)
 	
-	for row in ROWS:
+#	for row in ROWS:
 	    #For each tx calculate MSC to send and send it to the investment address using msc_sxsend.py
-	    IAMOUNT=row['btc']*RATE
+#	    IAMOUNT=row['btc']*RATE
 	    #Make sure we have enough MSC to actually do the investment
-	    if IAMOUNT <= ICURBALANCE:
-	        BCAST=json.loads(send_tx(IADDR,IAMOUNT,ICUR,'2'))
-	        NOW=calendar.timegm(time.gmtime())
-	        if "Success" in BCAST['status']:
-		    FNAME=BCAST['st_file'].rpartition('/')[2]
+#	    if IAMOUNT <= ICURBALANCE:
+#	        BCAST=json.loads(send_tx(IADDR,IAMOUNT,ICUR,'2'))
+#	        NOW=calendar.timegm(time.gmtime())
+#	        if "Success" in BCAST['status']:
+#		    FNAME=BCAST['st_file'].rpartition('/')[2]
 	            #Record the #MSC sent in the db
-	            try:
-		        dbc.execute("UPDATE tx set f_msc_sent='1', msc_sent=%s, tx_invest=%s, time_msc_sent=%s,msc_tx_file=%s where address=%s", (IAMOUNT, BCAST['hash'], NOW, FNAME, row['address']))
-		        con.commit()
-		    except psycopg2.DatabaseError, e:
-	                if dbc:
-			    con.rollback()
-			    print 'Error updating db with Investment Send tx details: %s' % e
-			    print ('Please verify data before restarting the daemon')
-			    sys.exit(1)
-		elif BROADCAST == 0:
-		    FNAME=BCAST['st_file'].rpartition('/')[2]
-		    try:
-			print('Test Mode Enabled: File Created but not broadcast')
-                        dbc.execute("UPDATE tx set f_msc_sent='2', msc_sent=%s, tx_invest=%s, time_msc_sent=%s,msc_tx_file=%s where address=%s", (IAMOUNT, BCAST['hash'], NOW, FNAME, row['address']))
-                        con.commit()
-                    except psycopg2.DatabaseError, e:
-                        if dbc:
-                            con.rollback()
-                            print 'Error updating db with Investment Send File details: %s' % e
-			    print ('Please verify data before restarting the daemon')
-                            sys.exit(1)
-		else:		
-		    print('\n\n****************************************************************************************************************************')
-		    print('Sending Investment TX failed for '+str(row['address'])+' with error: '+json.dumps(BCAST))
- 		    print('****************************************************************************************************************************')
-	    else:
-		print('\n\n*****************************************************************************************************************************************************')
-		print('Local Source Address Currency Balance is too low ('+str(ICURBALANCE)+' '+ISYM+') to send investment payment: '+str(IAMOUNT)+' for investor: '+str(row['address']))
-		print('*****************************************************************************************************************************************************')
-		break
+#	            try:
+#		        dbc.execute("UPDATE tx set f_msc_sent='1', msc_sent=%s, tx_invest=%s, time_msc_sent=%s,msc_tx_file=%s where address=%s", (IAMOUNT, BCAST['hash'], NOW, FNAME, row['address']))
+#		        con.commit()
+#		    except psycopg2.DatabaseError, e:
+#	                if dbc:
+#			    con.rollback()
+#			    print 'Error updating db with Investment Send tx details: %s' % e
+#			    print ('Please verify data before restarting the daemon')
+#			    sys.exit(1)
+#		elif BROADCAST == 0:
+#		    FNAME=BCAST['st_file'].rpartition('/')[2]
+#		    try:
+#			print('Test Mode Enabled: File Created but not broadcast')
+#                        dbc.execute("UPDATE tx set f_msc_sent='2', msc_sent=%s, tx_invest=%s, time_msc_sent=%s,msc_tx_file=%s where address=%s", (IAMOUNT, BCAST['hash'], NOW, FNAME, row['address']))
+#                        con.commit()
+#                    except psycopg2.DatabaseError, e:
+#                        if dbc:
+#                            con.rollback()
+#                            print 'Error updating db with Investment Send File details: %s' % e
+#			    print ('Please verify data before restarting the daemon')
+#                            sys.exit(1)
+#		else:		
+#		    print('\n\n****************************************************************************************************************************')
+#		    print('Sending Investment TX failed for '+str(row['address'])+' with error: '+json.dumps(BCAST))
+# 		    print('****************************************************************************************************************************')
+#	    else:
+#		print('\n\n*****************************************************************************************************************************************************')
+#		print('Local Source Address Currency Balance is too low ('+str(ICURBALANCE)+' '+ISYM+') to send investment payment: '+str(IAMOUNT)+' for investor: '+str(row['address']))
+#		print('*****************************************************************************************************************************************************')
+#		break
 
+	#close DB connection while we sleep
+	if con:
+            con.close()
 
 	#sleep for 5 minutes and repeat
 	print('\n\n------------------------------------------------------------')
