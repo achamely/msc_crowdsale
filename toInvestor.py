@@ -119,7 +119,7 @@ SPDIV=listOptions['property_type']
 #Define the currency we send to make the investment ('1' MSC, '2' TMCS).
 ICUR='2'
 #Broadcast 1 or Test 0
-BROADCAST=0
+BROADCAST=1
 #1 to keep unsigned and signed, 2 to keep only signed
 CLEAN=2
 
@@ -145,15 +145,16 @@ else:
     exit(1)
 print('-----------------------------------------------------------------------------------------')
 
+#Prime the dbc connection
+dbc=sql_connect()
+
 while 1:
 
 
 	current_block = commands.getoutput('/usr/local/bin/sx fetch-last-height')
 
 	print('\nChecking DB for tx hashes to clean')
-	try:
-          dbc
-        except NameError:
+	if dbc.closed:
           dbc=sql_connect()
 	
 	try:
@@ -244,13 +245,11 @@ while 1:
 
 	print('\nChecking DB for entries to finish and send Smart Property Tokens back to investor')
 	#Go through the Db of people we have not yet sent Smart Property Tokens to and if we have enough (Smart Property Token) balance send them the expected/calculated Expect number of tokens. 
-	try:
-	  dbc
-	except NameError:
+	if dbc.closed:
 	  dbc=sql_connect()
 	
 	#Get TX's where user has verified its ready, we have not yet sent smart property, we have sent MSC investment and we have calculated the Expected Smart properties
-	dbc.execute("SELECT * FROM tx where v_sp_send='1' and f_sp_sent='0' and f_msc_sent='1' and sp_exp>'0' order by id")
+	dbc.execute("SELECT * FROM tx where v_sp_send='1' and f_sp_sent='0' and sp_exp>'0' order by id")
 	ROWS = dbc.fetchall()
 
 	print('^----Found '+str(len(ROWS))+' new DB entries to process')
