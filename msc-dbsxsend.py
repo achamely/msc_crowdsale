@@ -27,14 +27,14 @@ def is_pubkey_valid(pubkey):
     except TypeError:
         return False
 
-def get_utxo(address, value):    
+def get_utxo(address):    
     con=None
     ROWS=[]
     try:
         con = psycopg2.connect(database=DBNAME, user=DBUSER)
         dbc = con.cursor(cursor_factory=psycopg2.extras.DictCursor)
         #dbc.execute("select t.* from ( select *, sum(satoshi) over (partition by address order by id asc) as csum from tx_utxo ) t where csum - satoshi <= %s and lock='1' and address=%s;", (value, address))
-	dbc.execute("select * from tx_utxo where lock='1' and address='%s' order by id;" % str(address))
+	dbc.execute("select * from tx_utxo where lock='1' and address='%s' order by satoshi desc;" % str(address))
         ROWS = dbc.fetchall()
     except psycopg2.DatabaseError, e:
         print 'Error %s' % e   #change to JSON erro message
@@ -134,10 +134,13 @@ if not address == listOptions['transaction_from'] and not force:
 
 #calculate minimum unspent balance (everything in satoshi's)
 available_balance = int(0)
+utxo_array=get_utxo(listOptions['transaction_from'])
+for item in utxo_array:
+        available_balance += int(item['satoshi'])
 
-BAL = commands.getoutput('sx balance -j '+listOptions['transaction_from'])
-balOptions = json.loads(str(''.join(BAL)))
-available_balance = int(balOptions[0]['paid'])
+#BAL = commands.getoutput('sx balance -j '+listOptions['transaction_from'])
+#balOptions = json.loads(str(''.join(BAL)))
+#available_balance = int(balOptions[0]['paid'])
 
 broadcast_fee = int(10000)
 output_minimum = int(5500) #dust threshold 5460
@@ -146,7 +149,7 @@ fee_total = broadcast_fee + (output_minimum * 4)
 
 #check if minimum BTC balance is met
 if available_balance < fee_total and not force:
-    print json.dumps({ "status": "NOT OK", "error": "Not enough funds "+str(available_balance)+" of "+str(fee_total), "fix": "Set \'force\' flag to proceed without balance checks" })
+    print json.dumps({ "status": "NOT OK", "error": "Not enough funds "+str(available_balance)+" of "+str(fee_total), "fix": "Make sure db tx are updated and you have enough btc" })
     exit()
 
 #check if Currency ID balance is available
@@ -215,9 +218,8 @@ else:
 #  z += 1
 
 tx_unspent_bal=0
-lsi_array=get_utxo(listOptions['transaction_from'], str(fee_total))
 utxo_list=[]
-for item in lsi_array:
+for item in utxo_array:
         tx_unspent_bal += int(item['satoshi'])
 	utxo_list.append(item)
 	if tx_unspent_bal >= fee_total:
@@ -231,7 +233,7 @@ for item in lsi_array:
 change = int(tx_unspent_bal) - fee_total
 
 if change < 0 or fee_total > available_balance and not force:
-    print json.dumps({ "status": "NOT OK", "error": "Not enough funds "+str(available_balance)+" of "+str(fee_total), "fix": "Send some btc to the sending address. Alternatively Set \'force\' flag to proceed without balance checks" })
+    print json.dumps({ "status": "NOT OK", "error": "Not enough funds "+str(available_balance)+" of "+str(fee_total), "fix": "Send some btc to the sending address. Check db tx to make sure they are accurate" })
     exit()
 
 #build multisig data address

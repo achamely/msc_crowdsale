@@ -103,15 +103,15 @@ listOptions = json.loads(str(''.join(JSON)))
 MYADDRESS=listOptions['my_address']
 MYPRIVKEY=listOptions['my_private_key']
 #Define the Investment address
-IADDR=listOptions['investment_address']
+#IADDR=listOptions['investment_address']
 #Define the Investment Sale end date (epoch) to calculated expected bonus
-EDATE=listOptions['end_date']
+#EDATE=listOptions['end_date']
 #Define the Smart Property Bonus % /week
-BRATE=listOptions['earlybird_bonus']
+#BRATE=listOptions['earlybird_bonus']
 #Define the desired exchange rate. How many MSC in a BTC.  Ex; .2 BTC/MSC =>  1/.2 = 5 MSC/BTC
-RATE=listOptions['x_rate']
+#RATE=listOptions['x_rate']
 #Define the expected MSC -> SP rate
-SPRATE=listOptions['sp_rate']
+#SPRATE=listOptions['sp_rate']
 #Define the Currency ID of the Smart property
 SPCID=listOptions['sp_cid']
 #Define Divisible 1=Indivisible, 2=Divisible 
@@ -121,7 +121,7 @@ ICUR='2'
 #Broadcast 1 or Test 0
 BROADCAST=0
 #1 to keep unsigned and signed, 2 to keep only signed
-CLEAN=1
+CLEAN=2
 
 
 
