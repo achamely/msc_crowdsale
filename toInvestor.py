@@ -30,10 +30,12 @@ def handler(signum, frame):
     print('\n\nStop Signal received')
     if con:
         con.close()
-    print('-----------------------------------')
+    print('-----------------------------------------------------')
     print('Session Statistics:')
-    print('Sent a total of '+txsent+' transactions')
-    print('Sent a total of '+amountsent+' '+SPCID)
+    print('Sent a total of '+str(txsent)+' transactions')
+    print('Sent a total of '+str(amountsent)+' SP'+str(SPCID)+' tokens')
+    print('-----------------------------------------------------')
+
     exit(1)
 
 def sql_connect():
