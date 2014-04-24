@@ -90,7 +90,7 @@ def send_tx(dstaddress, txamount, txcid, div):
 
     #print ('\n\n\n '+send_json)
     inter = commands.getoutput('echo '+send_json+' | python '+TOOLS+'/msc-dbsxsend.py').strip()
-    print ('\n\n '+inter)
+    print ('\n'+inter+'\n\n')
     #return commands.getoutput('echo '+send_json+' | python '+TOOLS+'/msc-sxsend.py')
     return inter
 
