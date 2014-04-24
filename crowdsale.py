@@ -145,13 +145,14 @@ else:
     exit(1)
 print('-----------------------------------------------------------------------------------------')
 
+#prime db connection
+dbc=sql_connect()
+
 while 1:
 
 	print('\nChecking DB for tx to calculate expected smart property return')
 	#Calculate the expected bonus for anyone we haven't yet.
-	try:
-          dbc
-        except NameError:
+	if dbc.closed:
           dbc=sql_connect()
 
 	#Find transaction where we have Sent the MSC investment and we have not calculated expected Smart Properties
@@ -192,10 +193,8 @@ while 1:
 
 	print('\nChecking DB for entries to finish and send Smart Property Tokens back to investor')
 	#Go through the Db of people we have not yet sent Smart Property Tokens to and if we have enough (Smart Property Token) balance send them the expected/calculated Expect number of tokens. 
-	try:
-	  dbc
-	except NameError:
-	  dbc=sql_connect()
+        if dbc.closed:
+          dbc=sql_connect()
 	
 	#Get TX's where user has verified its ready, we have not yet sent smart property, we have sent MSC investment and we have calculated the Expected Smart properties
 	dbc.execute("SELECT * FROM tx where v_sp_send='1' and f_sp_sent='0' and f_msc_sent='1' and sp_exp>'0' order by id")
@@ -248,10 +247,8 @@ while 1:
 
 	print('\nChecking DB for entries to send MSC investment to Fundraiser')		
 	#Scan the Database for any new transactions we haven't yet invested
-	try:
-	  dbc
-	except NameError:
-	  dbc=sql_connect()
+        if dbc.closed:
+          dbc=sql_connect()
 	
 	#Select tx's where the MSC amount to invest is verified and we have not yet sent MSC or Smart Property Tokens
 	dbc.execute("SELECT * FROM tx where v_msc_send='1' and f_sp_sent='0' and f_msc_sent='0' order by id")
@@ -305,6 +302,9 @@ while 1:
 		print('*****************************************************************************************************************************************************')
 		break
 
+        #close DB connection while we sleep
+        if con:
+            con.close()
 
 	#sleep for 5 minutes and repeat
 	print('\n\n------------------------------------------------------------')

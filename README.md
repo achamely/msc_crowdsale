@@ -29,6 +29,14 @@ git clone https://github.com/achamely/msc_crowdsale.git
    ```
 
 4.  .....
+Update sql permissions
+edit /etc/postgresql/9.1/main/pg_hba.conf  and add
+
+   ```
+local    all             all                                     trust
+host    all             all             127.0.0.1/32            trust
+   ```
+
 
 ## Usage:
 
