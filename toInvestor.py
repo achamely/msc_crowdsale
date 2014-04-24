@@ -182,10 +182,11 @@ while 1:
 	for x in nws.splitlines():
 	     lsi_array.append(x.split(':'))
 
-	data_utxo=[]
-	for i in range(0, len(lsi_array),8):
+	if len(lsi_array) > 5:
+	    #data_utxo=[]
+	    for i in range(0, len(lsi_array),8):
         	#data structure: (Tuple) :: Address, hash:output, block_height, value
-        	data_utxo.append(( lsi_array[i][1], lsi_array[i+1][1]+':'+lsi_array[i+1][2], lsi_array[i+2][1], lsi_array[i+3][1] ) )
+        	#data_utxo.append(( lsi_array[i][1], lsi_array[i+1][1]+':'+lsi_array[i+1][2], lsi_array[i+2][1], lsi_array[i+3][1] ) )
 
         	address=lsi_array[i][1]
         	tx_hash=lsi_array[i+1][1]
@@ -206,6 +207,8 @@ while 1:
                 	con.rollback()
 	            print 'Error %s' % e
         	    sys.exit(1)
+	else:
+	    print ('No new transactions to update')
 
 	#Find transaction where we have Sent the MSC investment and we have not calculated expected Smart Properties
 #        dbc.execute("SELECT * FROM tx where f_msc_sent='1' and sp_exp='-1' order by id")
