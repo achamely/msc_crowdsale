@@ -37,7 +37,7 @@ def get_utxo(address):
 	dbc.execute("select * from tx_utxo where lock='1' and address='%s' order by satoshi desc;" % str(address))
         ROWS = dbc.fetchall()
     except psycopg2.DatabaseError, e:
-        print 'Error %s' % e   #change to JSON erro message
+	print json.dumps({"status": "DB Update Error", "error": e , "fix": "Check files/db status and try again "})
         sys.exit(1)
     finally:
 	if con:
