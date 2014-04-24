@@ -75,7 +75,9 @@ def get_balance(address, csym, div):
 	return bal2
 
 
-def send_tx(dstaddress, txamount, txcid, div):
+def send_tx(toaddress, txamount, txcid, div):
+
+    dstaddress=toaddress.strip()
 
     print('  ^--Creating\sending tx for '+str(txamount)+' of currency id '+str(txcid)+' and sending it to '+str(dstaddress))
 
@@ -100,8 +102,8 @@ JSON = sys.stdin.readlines()
 listOptions = json.loads(str(''.join(JSON)))
 
 #Define my local address used for sending/receiving MSC/SP
-MYADDRESS=listOptions['my_address']
-MYPRIVKEY=listOptions['my_private_key']
+MYADDRESS=listOptions['my_address'].strip()
+MYPRIVKEY=listOptions['my_private_key'].strip()
 #Define the Investment address
 #IADDR=listOptions['investment_address']
 #Define the Investment Sale end date (epoch) to calculated expected bonus
