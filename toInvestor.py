@@ -19,11 +19,21 @@ DBNAME='maidsafe'
 DBUSER='ubuntu'
 #Prime SQL command
 con = None
+#some interesting numbers
+txsent=0
+amountsent=0
 
 def handler(signum, frame):
-    print('Stop Signal received')
+    global SPCID
+    global txsent
+    global amountsent
+    print('\n\nStop Signal received')
     if con:
         con.close()
+    print('-----------------------------------')
+    print('Session Statistics:')
+    print('Sent a total of '+txsent+' transactions')
+    print('Sent a total of '+amountsent+' '+SPCID)
     exit(1)
 
 def sql_connect():
@@ -68,7 +78,7 @@ def get_balance(address, csym, div):
 	print(' Confirmed Balance of '+str(bal1)+' '+str(csym)+' for '+str(address)+' from 2 data points')
 	return bal1
     elif bal1 > 0 and bal2 < 0:
-	print(' Balance mismatch, Site 1:['+str(bal1)+'] Site 2:['+str(bal2)+'] '+str(csym)+' for '+str(address)+' from 2 data points. Preffering Non Negative Balance Site 1: '+str(bal2))
+	print(' Balance mismatch, Site 1:['+str(bal1)+'] Site 2:['+str(bal2)+'] '+str(csym)+' for '+str(address)+' from 2 data points. Preffering Non Negative Balance Site 1: '+str(bal1))
         return bal1
     else:
 	print(' Balance mismatch, Site 1:['+str(bal1)+'] Site 2:['+str(bal2)+'] '+str(csym)+' for '+str(address)+' from 2 data points. Preffering Site 2: '+str(bal2))
@@ -280,6 +290,8 @@ while 1:
 	    		    print 'Error updating db with SP Token Send TX: %s' % e    
 			    print ('Please verify data before restarting the daemon')
 			    sys.exit(1)
+		    txsent += 1
+		    amountsent += row['sp_exp']
 		elif "Created" in BCAST['status'] and BROADCAST == 0:
 		    FNAME=BCAST['st_file'].rpartition('/')[2]
 		    try:
