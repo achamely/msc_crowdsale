@@ -283,7 +283,7 @@ while 1:
 		    FNAME=BCAST['st_file'].rpartition('/')[2]
 		    try:
 		    	#Update Database on who we sent SP tokens too and how many
-		        dbc.execute("UPDATE tx set f_sp_sent='1',sp_sent=%s,tx_out=%s,sp_tx_file=%s where address=%s", (row['sp_exp'], BCAST['hash'], FNAME, row['address']))
+		        dbc.execute("UPDATE tx set f_sp_sent='1',sp_sent=%s,tx_out=%s,sp_tx_file=%s where id=%s", (row['sp_exp'], BCAST['hash'], FNAME, row['id']))
 	                con.commit()
 		    except psycopg2.DatabaseError, e:
 			if dbc:
@@ -297,7 +297,7 @@ while 1:
 		    FNAME=BCAST['st_file'].rpartition('/')[2]
 		    try:
 			print('Test Mode Enabled: File Created but not broadcast')
-                        dbc.execute("UPDATE tx set f_sp_sent='2',sp_sent=%s,tx_out=%s,sp_tx_file=%s where address=%s", (row['sp_exp'], BCAST['hash'], FNAME, row['address']))
+                        dbc.execute("UPDATE tx set f_sp_sent='2',sp_sent=%s,tx_out=%s,sp_tx_file=%s where id=%s", (row['sp_exp'], BCAST['hash'], FNAME, row['id']))
                         con.commit()
                     except psycopg2.DatabaseError, e:
                         if dbc:
