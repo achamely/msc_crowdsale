@@ -43,6 +43,8 @@ for line in iter(sx_mon.stdout.readline, ''):
  	    count= cur.fetchall()
 	    if len(count) > 0:
 		print('Address: %s with investment amount %s and tx %s already exists. Skipping' % (address, bitcoin_amt, transaction_hash))
+	    elif address==listOptions['address']:
+		print('TX %s matches source address. Will not invest in myself! Skipping.' % transaction_hash)
 	    else:
 	    	cur.execute("INSERT into tx (address, btc, tx_in) values (%s, %s, %s)", (address, bitcoin_amt, transaction_hash ))         
 	    	con.commit()      
