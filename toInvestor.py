@@ -182,19 +182,18 @@ while 1:
 	    print 'Error %s' % e
 	    sys.exit(1)
 
-	sx_mon = commands.getoutput('sx balance '+MYADDRESS).replace(" ", "").splitlines()
-	address_satoshi_max=int(sx_mon[1].split(":")[1])
-
-	#find largest spendable input from UTXO
-	#find a recent tx that has a balance more than msc send cost (4*.00005500 +.0001 = .00032220)
-
-	#todo, add ability to use multiple smaller tx to do multi input funding
-	nws = (commands.getoutput('sx get-utxo '+MYADDRESS+" "+str(address_satoshi_max))).replace(" ", "")
 
 	lsi_array=[]
-	#since sx doesn't provide a clean output we need to try and clean it up and get the usable outputs
-	for x in nws.splitlines():
-	     lsi_array.append(x.split(':'))
+	sx_mon = commands.getoutput('sx balance '+MYADDRESS).replace(" ", "").splitlines()
+
+	if len(sx_mon)==4:
+	  address_satoshi_max=int(sx_mon[1].split(":")[1])
+	  #find largest spendable input from UTXO
+	  #todo, add ability to use multiple smaller tx to do multi input funding
+	  nws = (commands.getoutput('sx get-utxo '+MYADDRESS+" "+str(address_satoshi_max))).replace(" ", "")
+	  #since sx doesn't provide a clean output we need to try and clean it up and get the usable outputs
+	  for x in nws.splitlines():
+	       lsi_array.append(x.split(':'))
 
 	if len(lsi_array) > 5:
 	    #data_utxo=[]
