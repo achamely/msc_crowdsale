@@ -186,6 +186,7 @@ while 1:
 	lsi_array=[]
 	sx_mon = commands.getoutput('sx balance '+MYADDRESS).replace(" ", "").splitlines()
 
+	#Catch unknown sx output and skip this time
 	if len(sx_mon)==4:
 	  address_satoshi_max=int(sx_mon[1].split(":")[1])
 	  #find largest spendable input from UTXO
