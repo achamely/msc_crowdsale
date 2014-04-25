@@ -114,7 +114,11 @@ else:
     force=False
 
 JSON = sys.stdin.readlines()
-listOptions = json.loads(str(''.join(JSON)))
+try:
+    listOptions = json.loads(str(''.join(JSON)))
+except ValueError:
+    print json.dumps({ "status": "NOT OK", "error": "Couldn't read input variables", "fix": "check input data"+str(JSON) })
+    exit()
 
 #get local running dir
 RDIR=os.path.dirname(os.path.realpath(__file__))
@@ -281,7 +285,11 @@ validnextinputs=""
 input_counter=0
 for utxo in utxo_list:
   #prev_tx = json.loads(commands.getoutput('sx fetch-transaction '+utxo[0]+' | sx showtx -j'))
-   prev_tx = json.loads(commands.getoutput('sx fetch-transaction '+utxo['tx_hash']+' | sx showtx -j'))
+   try:
+        prev_tx = json.loads(commands.getoutput('sx fetch-transaction '+utxo['tx_hash']+' | sx showtx -j'))
+   except ValueError:
+        print json.dumps({ "status": "NOT OK", "error": "Problem getting json format of utxo", "fix": "check utxo tx: "+str(utxo['tx_hash']) })
+        exit()
 
    for output in prev_tx['outputs']:
       if output['address'] == listOptions['transaction_from']:
@@ -310,7 +318,11 @@ signed_raw_tx_file = unsigned_raw_tx_file+'.signed'
 commands.getoutput('sx mktx '+unsigned_raw_tx_file+' '+validnextinputs+' '+validnextoutputs)
 
 #convert it to json for adding the msc multisig
-json_tx = json.loads(commands.getoutput('cat '+unsigned_raw_tx_file+' | sx showtx -j'))
+try:
+    json_tx = json.loads(commands.getoutput('cat '+unsigned_raw_tx_file+' | sx showtx -j'))
+except ValueError:
+    print json.dumps({ "status": "NOT OK", "error": "Problem getting json format of unsigned_raw_tx", "fix": "check filename: "+str(unsigned_raw_tx_file) })
+    exit()
 
 #add multisig output to json object
 json_tx['outputs'].append({ "value": output_minimum*2, "script": "1 [ " + pubkey + " ] [ " + data_pubkey.lower() + " ] 2 checkmultisig", "addresses": "null"})
@@ -419,7 +431,11 @@ if "Success" not in tx_valid:
     print json.dumps({ "status": "NOT OK", "error": "signed tx not valid/failed sx validation: "+tx_valid, "fix": "Check your inputs/json file"})
     exit()
 
-tx_hash=json.loads(commands.getoutput('cat '+signed_raw_tx_file+' | sx showtx -j'))['hash']
+try:
+    tx_hash=json.loads(commands.getoutput('cat '+signed_raw_tx_file+' | sx showtx -j'))['hash']
+except ValueError:
+    print json.dumps({ "status": "NOT OK", "error": "Problem getting json format of signed_raw_tx_file", "fix": "check filename: "+str(signed_raw_tx_file) })
+    exit()
 
 #broadcast to obelisk node if requested
 if listOptions['broadcast'] == 1:
