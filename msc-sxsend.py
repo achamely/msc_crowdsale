@@ -1,4 +1,5 @@
-#get balance
+#!/usr/bin/python
+#Send Masterprotocol Currencies
 import sys
 import json
 import time
@@ -7,7 +8,7 @@ import hashlib
 import operator
 import commands
 import pybitcointools
-import os
+import os, decimal
 import requests, urlparse
 from pycoin import encoding
 from ecdsa import curves, ecdsa
@@ -52,7 +53,7 @@ def get_balance(address, csym, div):
         #print(' Confirmed Balance of '+str(bal1)+' '+str(csym)+' for '+str(address)+' from 2 data points')
         return bal1
     elif bal1 > 0 and bal2 < 0:
-        #print(' Balance mismatch, Site 1:['+str(bal1)+'] Site 2:['+str(bal2)+'] '+str(csym)+' for '+str(address)+' from 2 data points. Preffering Non Negative Balance Site 1: '+str(bal2))
+        #print(' Balance mismatch, Site 1:['+str(bal1)+'] Site 2:['+str(bal2)+'] '+str(csym)+' for '+str(address)+' from 2 data points. Preffering Non Negative Balance Site 1: '+str(bal1))
         return bal1
     else:
         #print(' Balance mismatch, Site 1:['+str(bal1)+'] Site 2:['+str(bal2)+'] '+str(csym)+' for '+str(address)+' from 2 data points. Preffering Site 2: '+str(bal2))
@@ -69,7 +70,11 @@ else:
     force=False
 
 JSON = sys.stdin.readlines()
-listOptions = json.loads(str(''.join(JSON)))
+try:
+    listOptions = json.loads(str(''.join(JSON)))
+except ValueError:
+    print json.dumps({ "status": "NOT OK", "error": "Couldn't read input variables", "fix": "check input data"+str(JSON) })
+    exit()
 
 #get local running dir
 RDIR=os.path.dirname(os.path.realpath(__file__))
@@ -91,7 +96,12 @@ if not address == listOptions['transaction_from'] and not force:
 available_balance = int(0)
 
 BAL = commands.getoutput('sx balance -j '+listOptions['transaction_from'])
-balOptions = json.loads(str(''.join(BAL)))
+try: 
+    balOptions = json.loads(str(''.join(BAL)))
+except ValueError:
+    print json.dumps({ "status": "NOT OK", "error": "Couldn't read availalbe balance from sx", "fix": "check input data"+str(BAL) })
+    exit()
+
 available_balance = int(balOptions[0]['paid'])
 
 broadcast_fee = int(10000)
@@ -186,7 +196,8 @@ transaction_type = 0   #simple send
 sequence_number = 1    #packet number
 #currency_id = 2        #MSC=1, TMSC=2
 currency_id = int(listOptions['currency_id'])
-amount = int(float(listOptions['msc_send_amt'])*1e8)  #maran's impl used float??
+#amount = int(float(listOptions['msc_send_amt'])*1e8)  #maran's impl used float??
+amount = int(decimal.Decimal(listOptions['msc_send_amt'])*decimal.Decimal("1e8"))
 
 cleartext_packet = ( 
         (hex(sequence_number)[2:].rjust(2,"0") + 
@@ -224,7 +235,11 @@ while invalid:
 validnextinputs=""
 input_counter=0
 for utxo in utxo_list:
-   prev_tx = json.loads(commands.getoutput('sx fetch-transaction '+utxo[0]+' | sx showtx -j'))
+   try:
+	prev_tx = json.loads(commands.getoutput('sx fetch-transaction '+utxo[0]+' | sx showtx -j'))
+   except ValueError:
+        print json.dumps({ "status": "NOT OK", "error": "Problem getting json format of utxo", "fix": "check utxo tx: "+str(utxo[0]) })
+        exit()
 
    for output in prev_tx['outputs']:
       if output['address'] == listOptions['transaction_from']:
@@ -252,7 +267,11 @@ signed_raw_tx_file = unsigned_raw_tx_file+'.signed'
 commands.getoutput('sx mktx '+unsigned_raw_tx_file+' '+validnextinputs+' '+validnextoutputs)
 
 #convert it to json for adding the msc multisig
-json_tx = json.loads(commands.getoutput('cat '+unsigned_raw_tx_file+' | sx showtx -j'))
+try:
+    json_tx = json.loads(commands.getoutput('cat '+unsigned_raw_tx_file+' | sx showtx -j'))
+except ValueError:
+    print json.dumps({ "status": "NOT OK", "error": "Problem getting json format of unsigned_raw_tx", "fix": "check filename: "+str(unsigned_raw_tx_file) })
+    exit()
 
 #add multisig output to json object
 json_tx['outputs'].append({ "value": output_minimum*2, "script": "1 [ " + pubkey + " ] [ " + data_pubkey.lower() + " ] 2 checkmultisig", "addresses": "null"})
@@ -361,7 +380,11 @@ if "Success" not in tx_valid:
     print json.dumps({ "status": "NOT OK", "error": "signed tx not valid/failed sx validation: "+tx_valid, "fix": "Check your inputs/json file"})
     exit()
 
-tx_hash=json.loads(commands.getoutput('cat '+signed_raw_tx_file+' | sx showtx -j'))['hash']
+try:
+    tx_hash=json.loads(commands.getoutput('cat '+signed_raw_tx_file+' | sx showtx -j'))['hash']
+except ValueError:
+    print json.dumps({ "status": "NOT OK", "error": "Problem getting json format of signed_raw_tx_file", "fix": "check filename: "+str(signed_raw_tx_file) })
+    exit()
 
 #broadcast to obelisk node if requested
 if listOptions['broadcast'] == 1:

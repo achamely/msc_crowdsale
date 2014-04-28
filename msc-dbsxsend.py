@@ -1,4 +1,5 @@
-#get balance
+#!/usr/bin/python
+#Send Masterprotocol Currencies using db tracking of utxo
 import sys
 import json
 import time
