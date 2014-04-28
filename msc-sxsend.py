@@ -99,7 +99,7 @@ BAL = commands.getoutput('sx balance -j '+listOptions['transaction_from'])
 try: 
     balOptions = json.loads(str(''.join(BAL)))
 except ValueError:
-    print json.dumps({ "status": "NOT OK", "error": "Couldn't read/load available balance from sx", "fix": "check input data"+str(BAL) })
+    print json.dumps({ "status": "NOT OK", "error": "Couldn't read/load available btc balance from sx", "fix": "check input data"+str(BAL) })
     exit()
 
 available_balance = int(balOptions[0]['paid'])
@@ -123,7 +123,7 @@ if available_balance < fee_total and not force:
 #else:
 #    cid_balance = json.loads(commands.getoutput('echo '+cid_query+' | python '+RDIR+'/msc-balance.py'))['balance']
 
-#get balance from omniwallet web interface
+#get balance from  web interfaces
 if listOptions['currency_id'] == 1:
     cid_balance=get_balance(listOptions['transaction_from'], 'MSC',2)
 elif listOptions['currency_id'] == 2:
