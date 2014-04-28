@@ -99,7 +99,7 @@ BAL = commands.getoutput('sx balance -j '+listOptions['transaction_from'])
 try: 
     balOptions = json.loads(str(''.join(BAL)))
 except ValueError:
-    print json.dumps({ "status": "NOT OK", "error": "Couldn't read availalbe balance from sx", "fix": "check input data"+str(BAL) })
+    print json.dumps({ "status": "NOT OK", "error": "Couldn't read/load available balance from sx", "fix": "check input data"+str(BAL) })
     exit()
 
 available_balance = int(balOptions[0]['paid'])
@@ -138,7 +138,7 @@ except ValueError:
     exit()
 
 if  float(cid_balance) < float(listOptions['msc_send_amt']) and not force:
-    print json.dumps({"status": "NOT OK", "error": "Currency ID balance too low" , "fix": "Check Currency ID balance: "+str(cid_balance)})
+    print json.dumps({"status": "NOT OK", "error": "Currency ID balance too low" , "fix": "Check Currency ID balance or set \'force\' flag to override: "+str(cid_balance)})
     exit()
 
 #generate public key of bitcoin address from priv key
