@@ -55,17 +55,23 @@ toInvestor: Used to automate the distribution of a Masterprotocol currency from 
  NOTE: This was written for nondivisible tokens. An update to process divisible tokens is coming soon. 
 
 1. Update/fill in to_example.json with your relevant information
-* my_address: The address that holds your tokens/currency
-* my_private_key: The associated private key
-* property_type: 1 for indivisible , 2 for divisible (MSC,TMSC)
-* sp_cid: The currency ID you wish to send
+   
+   ```
+ my_address: The address that holds your tokens/currency
+ my_private_key: The associated private key
+ property_type: 1 for indivisible , 2 for divisible (MSC,TMSC)
+ sp_cid: The currency ID you wish to send
+   ```
 
 2. Update toInvestor.py to reflect your database name and username
 
 3. Import your data into the database tx table. The relevant fields you need are:
-* address: The address to send the Masterprotocol currency to
-* sp_exp: The quantity of the Masterprotocol currency to send
 
+   ```
+ address: The address to send the Masterprotocol currency to
+ sp_exp: The quantity of the Masterprotocol currency to send
+   ```
+   
 4. Review your data and update / set the v_sp_send='1' for all db entries you wish to process
 
 5. Pipe your json input into the program
