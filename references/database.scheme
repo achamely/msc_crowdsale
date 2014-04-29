@@ -1,7 +1,7 @@
-#crowdsale schema
+#crowdsale schema (used for the full crowdsale script)
 create TABLE tx(id BIGSERIAL primary key, address char(34) not null, btc decimal(19,8) not null, tx_in char(64) not null, tx_invest char(64), msc_sent decimal(19,8), time_msc_sent int, sp_exp integer DEFAULT -1, tx_out char(64), sp_sent integer, f_msc_sent char(1) DEFAULT 0, f_sp_sent char(1) DEFAULT 0, v_msc_send char(1) DEFAULT 0, v_sp_send char(1) DEFAULT 0, msc_tx_file char(100), sp_tx_file char(100));
 
-#toInvestor schema
+#toInvestor schema (used for just the automated distribution script)
 create TABLE tx(id BIGSERIAL primary key, address char(34) not null, sp_exp integer DEFAULT -1, tx_out char(64), sp_sent integer, f_sp_sent char(1) DEFAULT 0, v_sp_send char(1) DEFAULT 0, sp_tx_file char(100));
 
 #db for utxo transactions

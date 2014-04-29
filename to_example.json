@@ -1,0 +1,6 @@
+{
+  "my_address": "{{Public from Address}}",
+  "sp_cid": {{smart property currency id}},
+  "property_type": {{ 1=Indivisible, 2=Divisible }}
+  "my_private_key": "{{private key for signing my_address}}"
+}
