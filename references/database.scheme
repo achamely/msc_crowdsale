@@ -4,5 +4,9 @@ create TABLE tx(id BIGSERIAL primary key, address char(34) not null, btc decimal
 #toInvestor schema (used for just the automated distribution script)
 create TABLE tx(id BIGSERIAL primary key, address char(34) not null, sp_exp integer DEFAULT -1, tx_out char(64), sp_sent integer, f_sp_sent char(1) DEFAULT 0, v_sp_send char(1) DEFAULT 0, sp_tx_file char(100));
 
+#toInvestor schema for divisible properties?(used for just the automated distribution script)
+create TABLE tx(id BIGSERIAL primary key, address char(34) not null, sp_exp decimal(19,8) not null, tx_out char(64), sp_sent decimal(19,8), f_sp_sent char(1) DEFAULT 0, v_sp_send char(1) DEFAULT 0, sp_tx_file char(100));
+
+
 #db for utxo transactions
 create TABLE tx_utxo(id BIGSERIAL primary key, address char(34) not null, tx_hash char(64) not null, hash_index integer not null, satoshi bigint not null, block integer not null, lock char(1) DEFAULT 0 not null, constraint u_constraint unique (address, tx_hash, hash_index));
