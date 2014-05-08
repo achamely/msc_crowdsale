@@ -4,7 +4,7 @@ import os, sys, signal, commands
 import psycopg2, psycopg2.extras
 import calendar, time
 import requests, urlparse
-import json
+import json, decimal
 
 if len(sys.argv) > 1: 
     print "Reads from backend Database and performs crowd sale investments"
@@ -51,6 +51,17 @@ def sql_connect():
 def get_balance(address, csym, div):
     bal1=-3
     bal2=-4
+
+    if csym == 1:
+	csym="MSC"
+    elif csym == 2:
+	csym="TMSC"
+    elif csym > 2:
+	csym = 'SP'+str(csym)
+    else:
+	print "Invalid Currency ID"
+	exit(2)
+
     url =  'https://test.omniwallet.org/v1/address/addr/'
     PAYLOAD = {'addr': address }
     try:
@@ -274,13 +285,13 @@ while 1:
         #Only attempt to get balance if we have data to process
         SPBALANCE=0
         if len(ROWS) > 0:
-	    SPBALANCE=get_balance(MYADDRESS, 'SP'+str(SPCID), SPDIV)
+	    SPBALANCE=get_balance(MYADDRESS, SPCID, SPDIV)
 	
 	for row in ROWS:
 	    if row['sp_exp'] <= SPBALANCE:
 		BCAST=json.loads(send_tx(row['address'],row['sp_exp'],SPCID, SPDIV))
 		if "Success" in BCAST['status']:
-	    	    SPBALANCE = float(SPBALANCE)-row['sp_exp']
+	    	    SPBALANCE = decimal.Decimal(SPBALANCE)-row['sp_exp']
 		    FNAME=BCAST['st_file'].rpartition('/')[2]
 		    try:
 		    	#Update Database on who we sent SP tokens too and how many
