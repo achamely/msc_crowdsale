@@ -73,7 +73,7 @@ def get_balance(address, csym, div):
 		else:
 		    fbal=float(bal['value'])/100000000    
                     bal1=('%.8f' % fbal)
-    except ValueError:  # includes simplejson.decoder.JSONDecodeError
+    except:  # includes simplejson.decoder.JSONDecodeError
 	print('Site 1 Unresponsive, Using 0 balance for now')
 	bal1=-1
 
@@ -83,7 +83,7 @@ def get_balance(address, csym, div):
     	for bal in tx2_data['balance']:
             if csym == bal['symbol']:
             	bal2= ('%.8f' % float(bal['value']))
-    except ValueError:  # includes simplejson.decoder.JSONDecodeError
+    except:  # includes simplejson.decoder.JSONDecodeError
 	print('Site 2 Unresponsive, Using 0 balance for now')
 	bal2=-2
 
