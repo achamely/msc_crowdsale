@@ -19,7 +19,7 @@ sudo bash install-msc,sh
 2. Install and setup postgres and psycopg2
 
    ```
-sudo apt-get install postgresql, python-psycopg2
+sudo apt-get install postgresql python-psycopg2
    ```
 
 3. Download and clone this repo
@@ -31,7 +31,7 @@ git clone https://github.com/achamely/msc_crowdsale.git
 4. Create a db and user for the db that the script will be able to use.
 
    ```
-  sudo -U postgres psql postgres    (starts the admin connection to postgres)
+  sudo -u postgres psql postgres    (starts the admin connection to postgres)
      CREATE USER ubuntu;               (this should be the same name as the user that will be running the script)
      CREATE DATABASE mycrowdsale;    (you can change this to whatever you prefer)
      GRANT ALL PRIVILEGES ON DATABASE mycrowdsale to ubuntu;     (update these to match above)
