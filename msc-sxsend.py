@@ -203,7 +203,7 @@ cleartext_packet = (
         (hex(sequence_number)[2:].rjust(2,"0") + 
             hex(transaction_type)[2:].rjust(8,"0") +
             hex(currency_id)[2:].rjust(8,"0") +
-            hex(amount)[2:].rjust(16,"0") ).ljust(62,"0") )
+            hex(amount)[2:].rstrip("L").rjust(16,"0") ).ljust(62,"0") )
 
 sha_the_sender = hashlib.sha256(from_address).hexdigest().upper()[0:-2]
 # [0:-2] because we remove last ECDSA byte from SHA digest
@@ -245,6 +245,7 @@ for utxo in utxo_list:
       if output['address'] == listOptions['transaction_from']:
           validnextinputs+=str(" -i "+utxo[0]+":"+utxo[1])
 	  input_counter+=1
+	  break
 
 #validnextoutputs add the exodus address and the receipiant to the output
 #If change is less than dust but greater than 0 send it to the receipiant: Bonus!
