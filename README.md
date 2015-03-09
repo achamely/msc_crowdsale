@@ -8,13 +8,14 @@ You'll need mastercoin tools installer and postgresql
 
 ## Setup:
 
-1. Clone and install the One click installer
+
+
+1. Install and configure sx according to instructions below
 
    ```
-git clone https://github.com/mastercoin-MSC/install-msc.git
-cd install-msc
-sudo bash install-msc,sh
+https://github.com/spesmilo/sx
    ```
+~~
 
 2. Install and setup postgres and psycopg2
 
